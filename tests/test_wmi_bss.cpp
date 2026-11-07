@@ -79,6 +79,26 @@ int main(){
         assert(!bad.count && bad.malformed==1);
         UInt32 total=0;for(auto count:bad.rejects)total+=count;assert(total==bad.malformed);
     }
+    // A DS Parameter Set on 5 GHz is nonstandard but common in the field.
+    // Its primary channel is above 14 and must agree with HT Operation.
+    for(UInt8 channel:{36,149}){
+        auto frame=beacon({'D','S','5','G'},channel);
+        frame[44]=channel;
+        frame.push_back(61);frame.push_back(22);frame.push_back(channel);
+        frame.insert(frame.end(),21,0);
+        Ath10k::WMIBSSCache ds5;
+        Ath10k::recordWMIBSS(ds5,frame.data(),frame.size(),channel,42,0);
+        assert(ds5.count==1 && ds5.entries[0].rxChannel==channel && ds5.entries[0].advertisedChannel==channel);
+    }
+    {
+        auto frame=beacon({'D','S','5','G'},36);
+        frame[44]=36;
+        frame.push_back(61);frame.push_back(22);frame.push_back(44);
+        frame.insert(frame.end(),21,0);
+        Ath10k::WMIBSSCache conflict;
+        Ath10k::recordWMIBSS(conflict,frame.data(),frame.size(),36,42,0);
+        assert(!conflict.count && conflict.rejects[Ath10k::BSSChannelConflict]==1);
+    }
     for(UInt32 channel:{14u,35u,37u,169u}){
         Ath10k::WMIBSSCache outside;auto frame=beacon();
         Ath10k::recordWMIBSS(outside,frame.data(),frame.size(),channel,42,0);

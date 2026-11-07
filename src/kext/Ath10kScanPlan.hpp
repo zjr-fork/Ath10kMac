@@ -9,7 +9,8 @@ static constexpr WMIScanChannel kWMIScanPlan[]={
 };
 static constexpr UInt32 kWMIScanChannelCount=sizeof(kWMIScanPlan)/sizeof(kWMIScanPlan[0]);
 static_assert(kWMIScanChannelCount<64,"scan masks use 64 bits");
-static constexpr UInt32 kWMIScanDwellMs=500, kWMIScanFirmwareMs=30000, kWMIScanHostMs=35000;
+static constexpr UInt32 kWMIScanDwellMs=500, kWMIScanFastDwellMs=200;
+static constexpr UInt32 kWMIScanFirmwareMs=30000, kWMIScanHostMs=35000;
 // Conservative host descriptor ceiling, not a regulatory database or TX authorization.
 static constexpr UInt8 kWMIScanPowerHalfDbm=20;
 inline bool wmiScanChannelAllowed(UInt32 channel){
@@ -66,11 +67,23 @@ inline UInt8 channelDefinitionPowerHalfDbm(UInt32 primary,UInt32 center,UInt32 w
 inline bool regulatoryScanChannel(const RegulatoryPolicy &p,UInt32 c){
     return wmiScanChannelAllowed(c) && regulatoryPower(p,c,c,20,false)!=0;
 }
-inline UInt32 regulatoryScanCount(const RegulatoryPolicy *p){
-    if(!p)return kWMIScanChannelCount;
+// The first scan after boot only needs channels this driver can actually join.
+// DFS channels are receive-only here, so excluding them avoids spending most of
+// the startup scan budget on entries the app can never connect to.
+inline bool regulatoryScanChannelFast(const RegulatoryPolicy &p,UInt32 c){
+    return channelCanConnect(c) && regulatoryPower(p,c,c,20,false)!=0;
+}
+inline bool regulatoryScanChannelForMode(const RegulatoryPolicy *p,UInt32 c,bool fast){
+    if(fast)return p?regulatoryScanChannelFast(*p,c):channelCanConnect(c);
+    return !p || regulatoryScanChannel(*p,c);
+}
+inline UInt32 regulatoryScanCountForMode(const RegulatoryPolicy *p,bool fast){
     UInt32 count=0;
-    for(const auto &c:kWMIScanPlan)if(regulatoryScanChannel(*p,c.channel))++count;
+    for(const auto &c:kWMIScanPlan)if(regulatoryScanChannelForMode(p,c.channel,fast))++count;
     return count;
+}
+inline UInt32 regulatoryScanCount(const RegulatoryPolicy *p){
+    return regulatoryScanCountForMode(p,false);
 }
 // WMI channel packed power bytes: min, max, regulatory, class;
 // antenna gain, max TX, reserved, reserved. Powers use half-dBm.

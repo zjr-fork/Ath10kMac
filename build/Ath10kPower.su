@@ -1,0 +1,8 @@
+src/kext/Ath10kPower.cpp:6:_ZN15Ath10kPCIDevice25preparePowerNotificationsEv	24	static
+src/kext/Ath10kPower.cpp:98:_ZN15Ath10kPCIDevice17powerNotificationEPvS0_jP9IOServiceS0_m	56	static
+src/kext/Ath10kPower.cpp:12:_ZN15Ath10kPCIDevice25releasePowerNotificationsEv	24	static
+src/kext/Ath10kPower.cpp:18:_ZN15Ath10kPCIDevice14powerIOBlockedEv	8	static
+src/kext/Ath10kPower.cpp:23:_ZN15Ath10kPCIDevice19powerRestartAllowedEv	8	static
+src/kext/Ath10kPower.cpp:27:_ZN15Ath10kPCIDevice17publishPowerStateEv	24	static
+src/kext/Ath10kPower.cpp:47:_ZN15Ath10kPCIDevice17requestPowerEventEN6Ath10k10PowerEventE	40	static
+src/kext/Ath10kPower.cpp:59:_ZN15Ath10kPCIDevice17controlPowerStateEP8OSObjectPvS2_S2_S2_	40	static

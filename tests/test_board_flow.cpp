@@ -29,14 +29,14 @@ static void OSSynchronizeIO() {}
 static void IOSleep(unsigned) {}
 [[maybe_unused]] static void IODelay(unsigned) {}
 namespace Ath10k {
-constexpr UInt32 kCEHostIE = 0x2c, kCEMiscIE = 0x34,kCEHostIS=0x30,kCEMiscIS=0x38,kCEHostInterruptMask=0x1f;
+[[maybe_unused]] constexpr UInt32 kCEHostIE = 0x2c, kCEMiscIE = 0x34,kCEHostIS=0x30,kCEMiscIS=0x38,kCEHostInterruptMask=0x1f;
 constexpr UInt32 kCESrcWriteIndex = 0x3c, kCECurrentSrcRead = 0x44;
-constexpr UInt32 kCEDstWriteIndex = 0x40, kCECurrentDstRead = 0x48;
-constexpr UInt32 kCECtrl1SrcByteSwapMask=0x10000,kCECtrl1DstByteSwapMask=0x20000;
-constexpr UInt32 kCECtrl1DmaxMask = 0xffff, kCEDescriptorRingAlign = 8;
+[[maybe_unused]] constexpr UInt32 kCEDstWriteIndex = 0x40, kCECurrentDstRead = 0x48;
+[[maybe_unused]] constexpr UInt32 kCECtrl1SrcByteSwapMask=0x10000,kCECtrl1DstByteSwapMask=0x20000;
+[[maybe_unused]] constexpr UInt32 kCECtrl1DmaxMask = 0xffff, kCEDescriptorRingAlign = 8;
 struct CEDescriptor32 { UInt32 address; UInt16 nbytes, flags; };
 struct CEHostConfig { UInt32 srcEntries, dstEntries, srcSizeMax=2048; };
-constexpr UInt32 kCECount=8;
+[[maybe_unused]] constexpr UInt32 kCECount=8;
 constexpr CEHostConfig kCEHostConfig[] = {{16, 0}, {0, 512}, {0, 128}, {32, 0}, {8192,0,256}, {0,0}, {0,0}, {2,2}};
 struct CESnapshot { UInt32 srcWriteIndex, currentSrcRead, dstWriteIndex, currentDstRead, ctrl1;
     UInt32 srcBase=0,srcSize=0,dstBase=0,dstSize=0,hostIE=0,miscIE=0,srcWatermark=0,dstWatermark=0,command=0; };
@@ -156,15 +156,16 @@ bool readCESnapshot(Registers &r, UInt32 ce, CESnapshot &s) {
     return r.snapshotOK;
 }
 }
-static constexpr UInt32 kIOPCIConfigCommand = 4;
+[[maybe_unused]] static constexpr UInt32 kIOPCIConfigCommand = 4;
 struct FakePCI {
     UInt16 command = 6;
     bool disableWorks = true;
+    template<class... T> void setProperty(T...) {}
     void setBusMasterEnable(bool enabled) {
         assert(!enabled);
         if (disableWorks && command != 0xffff) command &= ~4u;
     }
-    UInt16 configRead16(UInt32 address) { assert(address == 4); return command; }
+    UInt16 configRead16(UInt32 address) { assert(address == kIOPCIConfigCommand); return command; }
 };
 #ifdef ATH10K_WMI_RUNTIME_TEST
 #include "wmi_worker_mocks.hpp"

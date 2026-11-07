@@ -1,0 +1,2 @@
+src/kext/kmod_info.c:9:ath10kmac_module_start	8	static
+src/kext/kmod_info.c:16:ath10kmac_module_stop	8	static

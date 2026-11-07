@@ -1,244 +1,377 @@
 # Ath10kMac
 
-[Português (Brasil)](#português-brasil) | [English](#english)
-
-## Português (Brasil)
-
-Ath10kMac é uma extensão de kernel (kext) para macOS, criada para as placas Wi-Fi **Qualcomm Atheros QCA6174 e QCA9377**. O driver foi desenvolvido em C++/IOKit, usando o **ath10k do Linux** como referência para os protocolos, a inicialização do hardware e a comunicação com o firmware.
-
-**A QCA6174 está 100% funcional no notebook utilizado nos testes, incluindo o retorno do sleep (repouso). A QCA9377 não foi testada nesta versão.**
-
-### Compatibilidade
-
-| Placa | Identificação PCI | Situação |
-| --- | --- | --- |
-| **QCA6174** | `168c:003e` | **100% funcional no notebook testado**, com conexão, tráfego em 2,4 GHz e 5 GHz e recuperação após o repouso. |
-| **QCA9377** | `168c:0042` | **Não testada nesta versão.** O código e o firmware estão incluídos, mas o funcionamento ainda precisa ser confirmado em hardware. |
-
-O projeto tem como alvo o **macOS em computadores Intel (x86_64)**. Os testes atuais foram realizados no **macOS Sequoia**. A confirmação de funcionamento da QCA6174 se refere ao notebook e às redes utilizados nos testes; outras revisões de placa e configurações ainda precisam de relatos da comunidade.
-
-### Ath10k Connectivity é necessário
-
-Para procurar redes e conectar ao Wi-Fi, é necessário usar o aplicativo **Ath10k Connectivity**, junto com a kext.
-
-O aplicativo permite selecionar a rede, informar a senha, gerenciar redes conhecidas e acompanhar a conexão. A versão **1.0.0** inclui traduções em português brasileiro, inglês e espanhol.
-
-A Ath10kMac apresenta a conexão ao macOS por meio de uma interface de rede Ethernet. A seleção das redes Wi-Fi é feita pelo **Ath10k Connectivity**, que fica na barra de menu.
-
-### Recursos
-
-- Busca de redes nas bandas de **2,4 GHz e 5 GHz**.
-- Conexão como cliente a redes abertas e **WPA2-Personal com AES/CCMP**.
-- Operação HT/VHT, incluindo **802.11n e 802.11ac**, conforme a placa e o ponto de acesso.
-- Negociação de largura de canal de **20, 40 e 80 MHz**, conforme as capacidades da rede.
-- Transmissão e recepção de dados, com agregação de pacotes e controle de filas.
-- QoS e parâmetros **WMM/EDCA**.
-- Tratamento de canais, potência e domínio regulatório.
-- Recuperação da interface após o repouso, com reinicialização do hardware e reconexão pelo aplicativo.
-- Informações de diagnóstico para acompanhar inicialização, firmware e estado da conexão.
-
-O perfil desta versão é o uso como cliente Wi-Fi com redes abertas ou WPA2-Personal. **WPA3/SAE, autenticação Enterprise/EAP, AirDrop e AWDL ainda não fazem parte do suporte oferecido.** O retorno do repouso usa reinicialização e reconexão; a conexão anterior não é mantida por WoWLAN.
-
-### Desempenho observado
-
-Resultados informados nos testes com a **QCA6174 e a Ath10kMac 0.0.90**:
-
-| Banda | Download | Upload |
-| --- | ---: | ---: |
-| **2,4 GHz** | **32,62 Mbps** | **31,23 Mbps** |
-| **5 GHz** | **275,62 Mbps** | **153,03 Mbps** |
-
-A versão **0.0.91** também foi confirmada em uso com boa velocidade e recuperação após o repouso. Os números da tabela são uma referência da máquina testada; o desempenho depende do sinal, do roteador, do canal e da conexão de internet.
-
-### Instalação e uso
-
-1. Obtenha a **Ath10kMac.kext** e o **Ath10k Connectivity**.
-2. Instale a kext pelo método de carregamento utilizado no seu sistema e reinicie o computador.
-3. Coloque o aplicativo na pasta **Aplicativos** e abra-o.
-4. Use o ícone do **Ath10k Connectivity** na barra de menu para selecionar a rede e conectar.
-
-Em sistemas que usam **OpenCore**, adicione a kext em `EFI/OC/Kexts` e registre-a em `Kernel → Add` no `config.plist`, seguindo a configuração do seu bootloader.
-
-Para uso com o **Ath10k Connectivity 1.0.0**, utilize **macOS 13 ou posterior**. A validação de hardware descrita acima foi feita no Sequoia.
-
-### Compilação
-
-Requisitos:
-
-- macOS com Xcode e as ferramentas de linha de comando.
-- Python 3.
-- **MacKernelSDK** na pasta `MacKernelSDK` do projeto.
-- Os arquivos de firmware e de board data fornecidos com o projeto.
-
-Na pasta do projeto, execute:
-
-```sh
-make clean
-make kext
-```
-
-A kext será gerada em:
-
-```text
-build/out/Ath10kMac.kext
-```
-
-A preparação dos arquivos de firmware é realizada pelo processo de compilação. Os avisos de licença e os créditos dos componentes estão preservados nos arquivos correspondentes.
-
-### Relatos de testes e problemas
-
-Relatos de funcionamento em outras máquinas são bem-vindos, especialmente para a **QCA9377**.
-
-Ao abrir uma issue, informe:
-
-- Modelo da placa e identificação PCI.
-- Versão do macOS, da kext e do Ath10k Connectivity.
-- Banda utilizada e tipo de segurança da rede.
-- O que aconteceu e como reproduzir.
-- Se o problema ocorre ao iniciar, conectar, transferir dados ou voltar do repouso.
-
-Se estiver usando o código-fonte, é possível coletar um diagnóstico no Terminal, a partir da pasta do projeto:
-
-```sh
-sudo sh scripts/test-runtime.sh > ~/Desktop/ath10k-runtime.txt
-```
-
-Antes de publicar o diagnóstico, remova informações pessoais, como nomes de redes, endereços MAC e endereços IP.
-
-### Agradecimentos
-
-Este projeto foi possível graças ao trabalho compartilhado pela comunidade:
-
-- **[acidanthera](https://github.com/acidanthera)**, pelo **[MacKernelSDK](https://github.com/acidanthera/MacKernelSDK)**, utilizado na compilação e no desenvolvimento da kext.
-- **Qualcomm / Qualcomm Atheros**, pelos drivers, firmwares e pela lógica de funcionamento do hardware que serviram de base para o projeto.
-- **Linux e os desenvolvedores do [ath10k](https://wireless.docs.kernel.org/en/latest/en/users/drivers/ath10k.html)**, pelo código, documentação e lógica dos drivers. O **[ath10k do Linux v6.12](https://github.com/torvalds/linux/tree/v6.12/drivers/net/wireless/ath/ath10k)** foi a principal referência técnica das comparações.
-- **[OpenIntelWireless](https://github.com/OpenIntelWireless)**, pelo **[itlwm](https://github.com/OpenIntelWireless/itlwm)** e pelo **[HeliPort](https://github.com/OpenIntelWireless/HeliPort)**, referências para drivers Wi-Fi e aplicativos de conexão no macOS.
-- **[thegwchr](https://github.com/thegwchr)**, pelo **[Feixiao](https://github.com/thegwchr/Feixiao)**, estudado como referência de adaptação de drivers Wi-Fi para macOS.
-- **[laobamac](https://github.com/laobamac)**, pelo **[SimpleMtkWlan](https://github.com/laobamac/SimpleMtkWlan)**, usado nas comparações de integração com o macOS, DMA, interrupções e entrega de pacotes.
-- **[flany-dev](https://github.com/flany-dev)**, pelo **[RealtekRTL8822C](https://github.com/flany-dev/RealtekRTL8822C)**, referência para integração com o macOS, desempenho e recuperação da interface.
-- Aos mantenedores do **[linux-firmware](https://gitlab.com/kernel-firmware/linux-firmware)** e do **[wireless-regdb](https://kernel.googlesource.com/pub/scm/linux/kernel/git/wens/wireless-regdb/)**, pelos arquivos de firmware, board data e dados regulatórios utilizados.
-- **Davi**, por disponibilizar o notebook com a **QCA6174**, permitindo testar a kext em hardware real, medir o desempenho e confirmar seu funcionamento após o retorno do repouso.
-
-Obrigado também a todos que contribuírem com testes, relatos de problemas e melhorias.
-
----
+[English](#english) | [Português (Brasil)](#português-brasil)
 
 ## English
 
-Ath10kMac is a kernel extension (kext) for macOS, created for **Qualcomm Atheros QCA6174 and QCA9377** Wi-Fi adapters. The driver was developed in C++/IOKit, using **Linux ath10k** as a reference for protocols, hardware initialization, and firmware communication.
+### Overview
 
-**The QCA6174 is 100% functional on the laptop used for testing, including recovery after sleep. The QCA9377 has not been tested with this release.**
+Ath10kMac is an experimental macOS kernel extension for Qualcomm Atheros Wi-Fi adapters on Intel x86_64 Macs and Hackintosh systems. It is a community fork of [jonasw8/Ath10kMac](https://github.com/jonasw8/Ath10kMac).
 
-### Compatibility
+This fork documents and extends support for QCA9377 adapters, including the Dell Inspiron 15-3567 and the Samsung NP800G5M-X06CN. The driver is experimental. A successful build only means that the code compiled; it does not prove that Wi-Fi will work on a different adapter revision, laptop, macOS release, or router.
 
-| Adapter | PCI ID | Status |
-| --- | --- | --- |
-| **QCA6174** | `168c:003e` | **100% functional on the tested laptop**, including connection, traffic on 2.4 GHz and 5 GHz, and recovery after sleep. |
-| **QCA9377** | `168c:0042` | **Not tested with this release.** Code and firmware are included, but operation still needs to be confirmed on hardware. |
+There is currently no prebuilt release package or installer. Build from source and test with a spare USB EFI before changing a working internal EFI.
 
-The project targets **macOS on Intel computers (x86_64)**. Current testing was performed on **macOS Sequoia**. The QCA6174 results apply to the laptop and networks used for testing; other adapter revisions and configurations still need community testing reports.
+### Work in this fork
 
-### Ath10k Connectivity is required
+- Added a QCA9377 board-data profile selected by the adapter's PCI IDs: vendor/device **168c:0042**, subsystem **1028:1810**. The firmware preparation step includes the corresponding board data in the driver payload.
+- Added a second QCA9377 board-data profile for subsystem **144d:4133** (Samsung NP800G5M-X06CN). It uses the exact API2 entry from the verified `board-2.bin` (8124 bytes, SHA-256 `cb4aa4796ed742722925d82eab92a85d9c400dda05e6f878b492264454b1b81d`). The target machine now runs v0.0.100, reports `hw1.1`, selects `board-api2-exact`, scans networks, connects to WPA2 (including a mixed AES/TKIP-group AP), obtains DHCP, and passes bidirectional traffic.
+- Fixed 5 GHz network discovery for APs that include a DS Parameter Set whose primary channel is above 14. The old parser rejected the entire beacon as malformed, so affected 5 GHz networks never appeared even though the scan visited their channels. v0.0.101 accepts a same-band DS channel and still rejects a DS/HT channel conflict.
+- Added a fast first scan for startup in v0.0.102. The driver now scans 22 connectable non-DFS channels with a 200 ms dwell (about 4–5 seconds) instead of 38 channels at 500 ms (about 19 seconds). A manual Scan still covers all 38 channels, including DFS. The companion app also reuses the driver's completed first scan instead of immediately starting another full scan.
+- Extended the WPA2-Personal security path to handle AES/CCMP pairwise encryption with either AES/CCMP or TKIP group keys. This allows the tested mixed WPA2 configuration where the access point advertises both TKIP and CCMP pairwise suites and uses a TKIP group key. TKIP pairwise encryption is still unsupported.
+- Fixed TKIP group-key installation for hardware offload: the two Michael MIC keys from the RSN key descriptor are now swapped into the order the firmware expects, matching wpa_supplicant. Without this swap, group-addressed frames (DHCP replies and ARP) fail their MIC check, so the app can show a WPA2 connection while the interface never obtains an address.
+- Added and expanded regression coverage for QCA9377 identification, WPA2 security-suite parsing, key installation/rekey handling, and security diagnostics.
+- Fixed CE-ring DMA mapping to walk all `IODMACommand` segments and accept a ring only when they cover the full buffer contiguously within the adapter's 32-bit DMA address range. Added diagnostics for ring allocation failures. This addresses a 4 KiB segment result for a 64 KiB ring observed during recovery on the test system.
+- Improved the Ath10k Connectivity companion app: menu-bar connection states, animated connecting indicator, optional Keychain password storage, preferred saved-network reconnect, Launch at Login, and a copyable access-point security report that does not include the Wi-Fi password.
 
-To scan for networks and connect to Wi-Fi, you must use the **Ath10k Connectivity** application together with the kext.
+### Important: Adding support for another QCA9377 board
 
-The application lets you select a network, enter its password, manage saved networks, and monitor the connection. Version **1.0.0** includes Brazilian Portuguese, English, and Spanish translations.
+The kext already matches the QCA9377 PCI ID `168c:0042`. That match only attaches the driver; it does not guarantee that the adapter has a matching board-data payload. Ath10kMac reads the chip revision after reset to choose a supported hardware candidate, then selects an embedded payload by exact PCI subsystem IDs and chip revision.
 
-Ath10kMac exposes the connection to macOS through an Ethernet network interface. Wi-Fi networks are selected through **Ath10k Connectivity**, which runs in the menu bar.
+The current QCA9377 payloads are allowlisted for subsystem `1028:1810` (the tested Dell adapter) and `144d:4133` (Samsung), chip revision `1` (`hw1.1`), and target `0x05020001`. Another laptop can use the same QCA9377 PCI ID but require different board calibration. A PCI match alone does not mean that board is supported.
 
-### Features
+To add another QCA9377 board:
 
-- Network scanning on the **2.4 GHz and 5 GHz** bands.
-- Client connections to open networks and **WPA2-Personal with AES/CCMP**.
-- HT/VHT operation, including **802.11n and 802.11ac**, depending on the adapter and access point.
-- **20, 40, and 80 MHz** channel width negotiation, depending on network capabilities.
-- Data transmission and reception, with packet aggregation and queue management.
-- QoS and **WMM/EDCA** parameters.
-- Channel, transmit power, and regulatory domain handling.
-- Interface recovery after sleep, with hardware reinitialization and reconnection through the application.
-- Diagnostic information for initialization, firmware, and connection status.
+1. Keep the existing Dell profile. Use the new adapter's actual subsystem IDs and verified board data for that exact board from the appropriate Qualcomm/Linux firmware set.
+2. Extend `scripts/prepare-firmware.py` to validate and package that board data as a separate profile. Do not hand-edit the generated `src/kext/Ath10kPayload.hpp`.
+3. Register the profile for the exact PCI device, subsystem vendor/device, chip revision, and compatible firmware target. Add profile-selection coverage in `tests/test_qca9377_flow.cpp`. If the silicon revision or firmware target differs, add the matching hardware candidate and verified firmware/OTP payload as needed.
+4. Do not spoof the subsystem IDs or reuse Dell calibration blindly. Keep the first test on a backed-up USB EFI and verify driver startup and Wi-Fi before claiming support.
 
-This release supports Wi-Fi client operation with open or WPA2-Personal networks. **WPA3/SAE, Enterprise/EAP authentication, AirDrop, and AWDL are not currently supported.** Recovery after sleep uses reinitialization and reconnection; the previous connection is not retained through WoWLAN.
+### Hardware and software validation
 
-### Observed performance
+The QCA9377 work in this fork was tested on:
 
-Results reported during testing with the **QCA6174 and Ath10kMac 0.0.90**:
+| Item | Tested configuration |
+| --- | --- |
+| Laptop | Dell Inspiron 15-3567 |
+| Wi-Fi adapter | Qualcomm Atheros QCA9377 |
+| PCI vendor/device | 168c:0042 |
+| PCI subsystem | 1028:1810 |
+| Operating system | macOS Sequoia 15.6, build 24G84, x86_64 |
+| Driver | Ath10kMac 0.0.98; loaded and CE-ring allocation succeeded in a follow-up run |
+| Build tools | Xcode 16.4 |
 
-| Band | Download | Upload |
-| --- | ---: | ---: |
-| **2.4 GHz** | **32.62 Mbps** | **31.23 Mbps** |
-| **5 GHz** | **275.62 Mbps** | **153.03 Mbps** |
+On that configuration, network scanning, connection, and internet traffic were confirmed on the tested 2.4 GHz and 5 GHz networks. A WPA2-Personal mixed-cipher network using CCMP/AES pairwise and TKIP group encryption connected successfully.
 
-Version **0.0.91** was also confirmed in use with good speeds and recovery after sleep. The figures in the table are a reference from the tested machine; performance depends on signal strength, the router, the channel, and the internet connection.
+A follow-up v0.0.98 run reported active power and successful CE-ring allocation, and Wi-Fi connected after a delay. Repeated startup and sleep/wake validation is still needed; the stage responsible for the delay has not been isolated.
 
-### Installation and usage
+These are results from one adapter, one laptop, and the networks tested. They are not a compatibility guarantee or a controlled throughput benchmark. The QCA6174 support and performance figures mentioned in the upstream project have not been independently revalidated as part of this QCA9377 work.
 
-1. Obtain **Ath10kMac.kext** and **Ath10k Connectivity**.
-2. Install the kext using your system's extension loading method and restart the computer.
-3. Place the application in the **Applications** folder and open it.
-4. Use the **Ath10k Connectivity** menu bar icon to select a network and connect.
+### Samsung NP800G5M-X06CN target
 
-On systems using **OpenCore**, add the kext to `EFI/OC/Kexts` and register it under `Kernel → Add` in `config.plist`, following your bootloader configuration.
+The repository also carries a target-specific QCA9377 profile for:
 
-To use **Ath10k Connectivity 1.0.0**, run **macOS 13 or later**. The hardware validation described above was performed on Sequoia.
+| Item | Target |
+| --- | --- |
+| Laptop | Samsung NP800G5M-X06CN |
+| PCI function | `03:00.0` |
+| PCI vendor/device | `168c:0042` |
+| PCI subsystem | `144d:4133` |
+| ACPI path | `PciRoot(0x0)/Pci(0x1D,0x4)/Pci(0x0,0x0)` |
+| OS / build tested | macOS Sequoia 15.7.5, build 24G624 |
+| Firmware profile | `QCA9377/hw1.1-samsung`, chip revision `1`, exact API2 board |
 
-### Building
+On 2026-11-07, after replacing `EFI/OC/Kexts/Ath10kMac.kext` with the v0.0.100 build and rebooting, the machine reported `Ath10kDriverVersion=0.0.100`, `Ath10kChipRevision=1`, `Ath10kTargetRevision=hw1.1`, `Ath10kPreparedBoardSelection=board-api2-exact`, and the exact Samsung board key above. The driver selected 31 BSS entries and connected to `铁塔之巅` (`64:09:80:12:5d:f4`, channel 11) with CCMP pairwise and a TKIP group key. Runtime state reached `Ath10kConnectionState=connected-wpa2`, `Ath10kSecurityPhase=5`, and `Ath10kPortAuthorized=Yes`; `en3` obtained `192.168.1.11` through DHCP, and repeated HTTPS requests through that interface returned HTTP 200. This validates the Samsung board selection, WPA2 handshake/key installation, DHCP, and bidirectional data path on v0.0.100.
 
-Requirements:
+The v0.0.100 build in this repository adds the upstream QCA9377/TKIP/DMA/sleep fixes and the 0.1.13 companion app. Its Python suite, complete native test suite, clean kext build, symbol check, and app build pass. The companion app now clears a failed session and re-enables Connect instead of requiring a separate recovery step.
 
-- macOS with Xcode and its command line tools.
-- Python 3.
-- **MacKernelSDK** in the project's `MacKernelSDK` directory.
-- The firmware and board data files supplied with the project.
+The current v0.0.102 build keeps those fixes and adds the fast startup scan. Its full Python and native test suites, clean kext build, symbol check, and app build pass; driver 0.0.102 is paired with Ath10k Connectivity 0.1.14.
 
-From the project directory, run:
+See [SAMSUNG-QCA9377-ADAPTATION.md](SAMSUNG-QCA9377-ADAPTATION.md) for the target-specific build, installation, diagnostic, and rollback checklist.
+
+### How the driver and app work
+
+Ath10kMac handles the adapter and Wi-Fi connection. macOS sees the resulting connection through an Ethernet-style network interface; the driver does not add the normal macOS Wi-Fi controls for this adapter.
+
+Use **Ath10k Connectivity** to scan, choose a network, enter its password, connect, and view connection status. Keep the app running while connected. If enabled, the app stores the password in the macOS Keychain and tries saved networks in preferred order when it starts. Its menu-bar menu can be set to launch the app at login. Launch at Login uses macOS 13 or later.
+
+After sleep, the app can reinitialize the adapter and reconnect. The Wi-Fi association is not maintained during sleep (WoWLAN is not implemented).
+
+### Wi-Fi security support
+
+| Network/security mode | Status |
+| --- | --- |
+| Open network | Supported |
+| WPA2-Personal / PSK | Supported with AES/CCMP pairwise encryption and AES/CCMP or TKIP group encryption |
+| Mixed WPA2 advertisement | Supported when the adapter can select CCMP pairwise; TKIP group encryption was tested |
+| WPA3-Personal / SAE | Not supported |
+| Required Protected Management Frames (PMF / 802.11w) | Not supported |
+| TKIP pairwise encryption | Not supported |
+| WPA/WPA2 Enterprise / EAP | Not supported |
+| DFS channels | Not supported |
+| Access point/host mode, AirDrop, and AWDL | Not supported |
+
+Security support is intentionally limited. A router that requires WPA3, PMF, TKIP pairwise, or enterprise authentication will not connect. Optional PMF behavior has not been broadly tested.
+
+### Known limitations and reported behavior
+
+- The Dell subsystem has end-to-end validation with v0.0.98. The Samsung subsystem is validated end-to-end with v0.0.100: scan, WPA2 association and key installation, DHCP, and HTTPS traffic through the adapter interface. Other QCA9377 revisions and subsystems still need hardware testing.
+- Automatic reconnect after startup can still take longer than expected outside the scan phase. v0.0.102 reduces the first scan from about 19 seconds to about 4–5 seconds on the tested system. Reconnection remains best-effort; keep the app open and use Scan/Retry if it does not finish. A manual Scan intentionally performs the slower full 38-channel scan so DFS networks remain visible.
+- Verbose/debug boot on the test system displayed repeated low-level Ath10kMac diagnostics and appeared to pause during startup. The boot-time impact and cause have not been measured or isolated. Reports should include whether verbose or Ath10k debug boot arguments were enabled.
+- Sleep recovery restarts the adapter and reconnects; it does not preserve the previous Wi-Fi session. v0.0.100 includes delayed-probe and wake-recovery changes, but repeated sleep/wake validation on the Samsung target is still pending.
+- The kext is experimental and can cause a kernel panic or prevent startup if a device or configuration is incompatible.
+
+### Build from source
+
+Build on an Intel Mac with macOS, Xcode and its command-line tools, Python 3, and the repository's MacKernelSDK submodule.
+
+Clone the repository and initialize its submodules:
+
+```sh
+git clone --recurse-submodules https://github.com/thekunalthakur/Ath10kMac.git
+cd Ath10kMac
+```
+
+If you already cloned without submodules, run:
+
+```sh
+git submodule update --init --recursive
+```
+
+Build the kext and the companion app:
 
 ```sh
 make clean
 make kext
+make app
 ```
 
-The kext will be generated at:
+The firmware preparation and kext symbol check run as part of the build. Outputs:
 
-```text
-build/out/Ath10kMac.kext
-```
+- Kext: `build/out/Ath10kMac.kext`
+- App: `build/Ath10k Connectivity.app`
 
-Firmware preparation is handled by the build process. Component license notices and credits are preserved in their respective files.
+The project build targets Intel x86_64. QCA9377 runtime validation documented above was on Sequoia 15.6 for the Dell system and Sequoia 15.7.5 for the Samsung v0.0.100 build. Building successfully does not validate the firmware, OpenCore setup, or Wi-Fi behavior on another system.
 
-### Testing reports and issues
+### Test with OpenCore
 
-Reports from other machines are welcome, especially for the **QCA9377**.
+**Do not replace a working internal EFI for the first test.** Keep a recoverable backup and boot from a separate USB EFI first.
 
-When opening an issue, include:
+1. Build the kext and copy `build/out/Ath10kMac.kext` into the USB EFI at `EFI/OC/Kexts/`. When replacing an older injection, quit Ath10k Connectivity and replace the entire kext bundle; do not merge the two `Contents` directories.
+2. In OpenCore's `Kernel -> Add`, add an entry for `Ath10kMac.kext` with:
+   - Arch: `x86_64`
+   - BundlePath: `Ath10kMac.kext`
+   - ExecutablePath: `Contents/MacOS/Ath10kMac`
+   - PlistPath: `Contents/Info.plist`
+   - Enabled: `True`
+3. Validate `config.plist` with the tools matching your OpenCore version and boot using the USB's OpenCore entry.
+4. Confirm that the kext loads, scan and connect with Ath10k Connectivity, and verify actual traffic before considering any internal-EFI change.
 
-- Adapter model and PCI ID.
-- macOS, kext, and Ath10k Connectivity versions.
-- Wi-Fi band and network security type.
-- What happened and how to reproduce it.
-- Whether the issue occurs during startup, connection, data transfers, or recovery after sleep.
+OpenCore configurations differ by system. Preserve the existing kext order, the existing `Kernel -> Add` bundle path, and other required kexts; this README does not provide a universal EFI or config.plist.
 
-If you are using the source code, you can collect diagnostics in Terminal from the project directory:
+### Report a test or issue
+
+Reports from other machines—especially QCA9377 systems—are welcome. Include:
+
+- Laptop and adapter model, adapter revision if known, PCI vendor/device and subsystem IDs.
+- macOS version/build, Ath10kMac version, and Ath10k Connectivity version.
+- Wi-Fi band, channel, and security mode (for example, WPA2-PSK with CCMP pairwise and TKIP group).
+- What happened, what you expected, and steps to reproduce it.
+- Whether the problem occurs at boot, scan, authentication/negotiation, traffic, disconnect, or wake.
+- For boot/reconnect delays, whether verbose or debug boot arguments were enabled.
+
+To collect diagnostics from the project directory:
 
 ```sh
 sudo sh scripts/test-runtime.sh > ~/Desktop/ath10k-runtime.txt
 ```
 
-Before publishing diagnostics, remove personal information such as network names, MAC addresses, and IP addresses.
+The script samples Ath10kMac runtime state, reads recent kernel logs, and records network-interface/DHCP details. It writes the report to the Desktop; it does not upload it. Review and redact SSIDs, BSSIDs, MAC addresses, IP addresses, serial numbers, and any other private details before attaching it. Do not include Wi-Fi passwords or an unredacted EFI/config.plist.
 
-### Acknowledgments
+### License
 
-This project was made possible by the community's shared work:
+The Ath10kMac project code in this repository is released under the **GNU General Public License v3.0 (GPL-3.0)**. See the repository-root [LICENSE](LICENSE). Third-party files and bundled assets can have separate terms.
 
-- **[acidanthera](https://github.com/acidanthera)**, for **[MacKernelSDK](https://github.com/acidanthera/MacKernelSDK)**, used to build and develop the kext.
-- **Qualcomm / Qualcomm Atheros**, for the drivers, firmware, and hardware logic that served as the basis for this project.
-- **Linux and the [ath10k](https://wireless.docs.kernel.org/en/latest/en/users/drivers/ath10k.html) developers**, for the driver code, documentation, and logic. **[Linux v6.12 ath10k](https://github.com/torvalds/linux/tree/v6.12/drivers/net/wireless/ath/ath10k)** was the main technical reference for the comparisons.
-- **[OpenIntelWireless](https://github.com/OpenIntelWireless)**, for **[itlwm](https://github.com/OpenIntelWireless/itlwm)** and **[HeliPort](https://github.com/OpenIntelWireless/HeliPort)**, references for Wi-Fi drivers and connection applications on macOS.
-- **[thegwchr](https://github.com/thegwchr)**, for **[Feixiao](https://github.com/thegwchr/Feixiao)**, studied as a reference for adapting Wi-Fi drivers to macOS.
-- **[laobamac](https://github.com/laobamac)**, for **[SimpleMtkWlan](https://github.com/laobamac/SimpleMtkWlan)**, used in comparisons of macOS integration, DMA, interrupts, and packet delivery.
-- **[flany-dev](https://github.com/flany-dev)**, for **[RealtekRTL8822C](https://github.com/flany-dev/RealtekRTL8822C)**, a reference for macOS integration, performance, and interface recovery.
-- The maintainers of **[linux-firmware](https://gitlab.com/kernel-firmware/linux-firmware)** and **[wireless-regdb](https://kernel.googlesource.com/pub/scm/linux/kernel/git/wens/wireless-regdb/)**, for the firmware files, board data, and regulatory data used in this project.
-- **Davi**, for providing the laptop with the **QCA6174**, allowing us to test the kext on real hardware, measure its performance, and confirm that it works after waking from sleep.
+The QCA9377 firmware is distributed under separate Qualcomm Atheros terms and includes additional notices. Review [the firmware license](firmware/LICENSE.QualcommAtheros_ath10k), [the firmware notices](firmware/QCA9377/hw1.0/notice_ath10k_firmware-6.txt), and [the provenance record](firmware/QCA9377/hw1.0/PROVENANCE.json) before redistributing firmware. The prepared firmware payload is derived from those files; the root GPL license does not replace their terms.
 
-Thank you also to everyone who contributes testing, issue reports, and improvements.
+MacKernelSDK is included as a Git submodule and retains the license provided by its upstream project. See [Acidanthera/MacKernelSDK](https://github.com/acidanthera/MacKernelSDK) for its terms.
 
+### Credits
+
+This fork builds on [jonasw8/Ath10kMac](https://github.com/jonasw8/Ath10kMac) and the wider community work already credited in the project. See the source files and firmware directory for component licenses, provenance, and detailed acknowledgments.
+
+## Português (Brasil)
+
+### Visão geral
+
+Ath10kMac é uma extensão de kernel experimental para macOS, destinada a adaptadores Qualcomm Atheros em Macs e Hackintosh Intel x86_64. Este repositório é um fork comunitário de [jonasw8/Ath10kMac](https://github.com/jonasw8/Ath10kMac).
+
+Este fork documenta e amplia o suporte a adaptadores QCA9377, incluindo o Dell Inspiron 15-3567 e o Samsung NP800G5M-X06CN. O driver continua experimental. Compilar com sucesso só confirma que o código foi compilado; não garante Wi-Fi em outra revisão da placa, computador, versão do macOS ou roteador.
+
+No momento não há pacote de instalação nem versão pré-compilada publicada. Compile o código-fonte e teste primeiro com uma EFI USB separada, sem alterar a EFI interna que já funciona.
+
+### Trabalho neste fork
+
+- Adicionado um perfil de dados de placa para QCA9377, selecionado pelos IDs PCI: vendor/device **168c:0042** e subsystem **1028:1810**. A preparação do firmware inclui os dados correspondentes no payload do driver.
+- Adicionado um segundo perfil de dados de placa para QCA9377, para o subsystem **144d:4133** (Samsung NP800G5M-X06CN). Ele usa a entrada API2 exata do `board-2.bin` verificado (8124 bytes, SHA-256 `cb4aa4796ed742722925d82eab92a85d9c400dda05e6f878b492264454b1b81d`). O equipamento de destino agora executa a v0.0.100, informa `hw1.1`, seleciona `board-api2-exact`, busca redes, conecta em WPA2 (inclusive um AP misto AES/TKIP), obtém DHCP e transfere dados nos dois sentidos.
+- Ampliado o caminho de segurança WPA2-Personal para aceitar criptografia pairwise AES/CCMP com chave de grupo AES/CCMP ou TKIP. Isso permite a configuração WPA2 mista testada, na qual o ponto de acesso anuncia TKIP e CCMP como opções pairwise e usa TKIP para a chave de grupo. TKIP pairwise continua sem suporte.
+- Corrigida a instalação da chave de grupo TKIP para offload de hardware: as duas chaves Michael MIC do descritor RSN agora são trocadas para a ordem esperada pelo firmware, como faz o wpa_supplicant. Sem essa troca, quadros de grupo (respostas DHCP e ARP) falham na verificação MIC, e o aplicativo pode mostrar uma conexão WPA2 sem que a interface obtenha endereço.
+- Ampliada a cobertura de testes de regressão para identificação da QCA9377, interpretação das suites WPA2, instalação/renovação de chaves e diagnósticos de segurança.
+- Corrigido o mapeamento DMA dos anéis CE para percorrer todos os segmentos `IODMACommand` e aceitar um anel somente quando eles cobrem o buffer inteiro de forma contígua dentro do limite de endereçamento DMA de 32 bits do adaptador. Foram adicionados diagnósticos de falha de alocação. Isso trata um resultado de segmento de 4 KiB para um anel de 64 KiB observado durante a recuperação no sistema de teste.
+- Melhorado o aplicativo Ath10k Connectivity: estados de conexão na barra de menu, indicador animado durante a conexão, armazenamento opcional da senha no Keychain, reconexão na ordem preferida das redes salvas, opção Launch at Login e relatório copiável da segurança anunciada pelo ponto de acesso, sem a senha do Wi-Fi.
+
+### Nota importante: adicionar suporte a outra placa QCA9377
+
+A kext já corresponde ao ID PCI da QCA9377 `168c:0042`. Essa correspondência apenas associa o driver ao dispositivo; não garante que exista um payload de dados de placa compatível. Após o reset, a Ath10kMac lê a revisão do chip para escolher um candidato de hardware suportado e seleciona o payload incorporado usando os IDs PCI de subsystem e a revisão do chip.
+
+Os payloads QCA9377 atuais permitem os subsystems `1028:1810` (o adaptador Dell testado) e `144d:4133` (Samsung), revisão de chip `1` (`hw1.1`) e target `0x05020001`. Outro notebook pode usar a mesma QCA9377 e exigir dados de calibração diferentes. O ID PCI, sozinho, não significa que a placa seja compatível.
+
+Para adicionar outra placa QCA9377:
+
+1. Mantenha o perfil Dell existente. Use os IDs de subsystem reais do novo adaptador e dados de placa verificados para esse modelo, obtidos do conjunto de firmware Qualcomm/Linux apropriado.
+2. Amplie `scripts/prepare-firmware.py` para validar e empacotar esses dados como um perfil separado. Não edite manualmente o arquivo gerado `src/kext/Ath10kPayload.hpp`.
+3. Registre o perfil para o dispositivo PCI, vendor/device do subsystem, revisão do chip e target de firmware exatos. Adicione cobertura de seleção de perfil em `tests/test_qca9377_flow.cpp`. Se a revisão do chip ou o target de firmware for diferente, inclua o candidato de hardware e o payload de firmware/OTP verificados correspondentes.
+4. Não falsifique os IDs de subsystem nem reutilize os dados de calibração Dell sem validação. Faça o primeiro teste em uma EFI USB com backup e confirme a inicialização do driver e o funcionamento do Wi-Fi antes de declarar suporte.
+
+### Hardware e software testados
+
+O trabalho de QCA9377 deste fork foi testado em:
+
+| Item | Configuração testada |
+| --- | --- |
+| Notebook | Dell Inspiron 15-3567 |
+| Adaptador Wi-Fi | Qualcomm Atheros QCA9377 |
+| PCI vendor/device | 168c:0042 |
+| PCI subsystem | 1028:1810 |
+| Sistema operacional | macOS Sequoia 15.6, build 24G84, x86_64 |
+| Driver | Ath10kMac 0.0.98; carregado e alocação dos anéis CE confirmada em um teste posterior |
+| Ferramentas de compilação | Xcode 16.4 |
+
+Nessa configuração, foram confirmados a busca de redes, a conexão e o tráfego de internet nas redes testadas de 2,4 GHz e 5 GHz. Uma rede WPA2-Personal mista, com CCMP/AES pairwise e TKIP para a chave de grupo, conectou com sucesso.
+
+Em um teste posterior com v0.0.98, o sistema informou energia ativa e alocação bem-sucedida dos anéis CE, e o Wi-Fi conectou após um atraso. Ainda são necessários testes repetidos de inicialização e repouso/retomada; a etapa responsável pelo atraso não foi isolada.
+
+Esses resultados valem para um adaptador, um notebook e as redes testadas. Não são uma garantia de compatibilidade nem um benchmark controlado de velocidade. O suporte e os números de desempenho da QCA6174 mencionados no projeto upstream não foram revalidados independentemente neste trabalho com QCA9377.
+
+### Destino Samsung NP800G5M-X06CN
+
+O repositório também inclui um perfil QCA9377 específico para:
+
+| Item | Destino |
+| --- | --- |
+| Notebook | Samsung NP800G5M-X06CN |
+| Função PCI | `03:00.0` |
+| PCI vendor/device | `168c:0042` |
+| PCI subsystem | `144d:4133` |
+| Caminho ACPI | `PciRoot(0x0)/Pci(0x1D,0x4)/Pci(0x0,0x0)` |
+| Sistema / build testados | macOS Sequoia 15.7.5, build 24G624 |
+| Perfil de firmware | `QCA9377/hw1.1-samsung`, revisão de chip `1`, board API2 exato |
+
+Em 07/11/2026, após substituir `EFI/OC/Kexts/Ath10kMac.kext` pelo build v0.0.100 e reiniciar, a máquina informou `Ath10kDriverVersion=0.0.100`, `Ath10kChipRevision=1`, `Ath10kTargetRevision=hw1.1`, `Ath10kPreparedBoardSelection=board-api2-exact` e a chave de board Samsung exata. O driver selecionou 31 BSS e conectou a `铁塔之巅` (`64:09:80:12:5d:f4`, canal 11) com CCMP pairwise e chave de grupo TKIP. O estado chegou a `Ath10kConnectionState=connected-wpa2`, `Ath10kSecurityPhase=5` e `Ath10kPortAuthorized=Yes`; a interface `en3` obteve `192.168.1.11` por DHCP, e requisições HTTPS repetidas por essa interface retornaram HTTP 200. Isso valida a seleção do board Samsung, o handshake/instalação de chaves WPA2, o DHCP e o caminho de dados bidirecional na v0.0.100.
+
+A versão v0.0.100 deste repositório acrescenta as correções QCA9377/TKIP/DMA/repouso do upstream e o aplicativo 0.1.13. A suíte Python, a suíte nativa completa, a compilação limpa da kext, a verificação de símbolos e a compilação do aplicativo passam. O aplicativo agora limpa uma sessão com falha e reabilita o botão Connect sem exigir uma etapa de recuperação separada.
+
+Consulte [SAMSUNG-QCA9377-ADAPTATION.md](SAMSUNG-QCA9377-ADAPTATION.md) para o checklist específico de compilação, instalação, diagnóstico e reversão.
+
+### Como o driver e o aplicativo funcionam
+
+A Ath10kMac controla o adaptador e a conexão Wi-Fi. O macOS vê a conexão por meio de uma interface de rede semelhante a Ethernet; o driver não adiciona os controles normais de Wi-Fi do macOS para esse adaptador.
+
+Use o **Ath10k Connectivity** para buscar redes, selecionar uma rede, informar a senha, conectar e acompanhar o estado da conexão. Mantenha o aplicativo aberto enquanto estiver conectado. Se habilitada, a opção salva a senha no Keychain do macOS e tenta reconectar às redes salvas na ordem preferida quando o aplicativo inicia. O menu da barra pode iniciar o aplicativo no login. A opção Launch at Login exige macOS 13 ou posterior.
+
+Depois do repouso, o aplicativo pode reinicializar o adaptador e reconectar. A associação Wi-Fi não é mantida durante o repouso (WoWLAN não está implementado).
+
+### Segurança Wi-Fi compatível
+
+| Modo de rede/segurança | Situação |
+| --- | --- |
+| Rede aberta | Compatível |
+| WPA2-Personal / PSK | Compatível com criptografia pairwise AES/CCMP e criptografia de grupo AES/CCMP ou TKIP |
+| Anúncio WPA2 misto | Compatível quando o adaptador pode escolher CCMP pairwise; TKIP para chave de grupo foi testado |
+| WPA3-Personal / SAE | Sem suporte |
+| Protected Management Frames (PMF / 802.11w) obrigatório | Sem suporte |
+| Criptografia pairwise TKIP | Sem suporte |
+| WPA/WPA2 Enterprise / EAP | Sem suporte |
+| Canais DFS | Sem suporte |
+| Modo ponto de acesso, AirDrop e AWDL | Sem suporte |
+
+O suporte de segurança é limitado intencionalmente. Um roteador que exija WPA3, PMF, TKIP pairwise ou autenticação Enterprise não conectará. O comportamento com PMF opcional ainda não foi amplamente testado.
+
+### Limitações e comportamentos observados
+
+- O subsystem Dell tem validação ponta a ponta com v0.0.98. O subsystem Samsung tem validação ponta a ponta com v0.0.100: busca, associação WPA2 e instalação de chaves, DHCP e tráfego HTTPS pela interface do adaptador. Outras revisões e subsystems da QCA9377 ainda precisam de testes em hardware.
+- A reconexão automática após iniciar o sistema pode demorar no equipamento testado. Às vezes permaneceu em “Reconnecting” ou “Negotiating” antes de concluir. A reconexão é best-effort; mantenha o aplicativo aberto e use Scan/Retry se não terminar.
+- Com boot verbose/debug no equipamento de teste, apareceram mensagens repetidas de diagnóstico de baixo nível da Ath10kMac e o início pareceu pausado. O impacto e a causa do atraso não foram medidos nem isolados. Relatos devem informar se os argumentos verbose ou Ath10k debug estavam ativos.
+- Ao voltar do repouso, o adaptador é reinicializado e reconectado; a sessão Wi-Fi anterior não é preservada. A v0.0.100 inclui mudanças de probe adiado e recuperação após retomada, mas ainda são necessários testes repetidos de repouso/retomada no destino Samsung.
+- A kext é experimental e pode causar kernel panic ou impedir o início do sistema se o dispositivo ou a configuração forem incompatíveis.
+
+### Compilar do código-fonte
+
+Compile em um Mac Intel com macOS, Xcode e ferramentas de linha de comando, Python 3 e o submódulo MacKernelSDK do repositório.
+
+Clone o repositório e inicialize os submódulos:
+
+```sh
+git clone --recurse-submodules https://github.com/thekunalthakur/Ath10kMac.git
+cd Ath10kMac
+```
+
+Se você já clonou sem os submódulos, execute:
+
+```sh
+git submodule update --init --recursive
+```
+
+Compile a kext e o aplicativo:
+
+```sh
+make clean
+make kext
+make app
+```
+
+A preparação do firmware e a verificação de símbolos da kext ocorrem durante a compilação. Arquivos gerados:
+
+- Kext: `build/out/Ath10kMac.kext`
+- Aplicativo: `build/Ath10k Connectivity.app`
+
+A compilação é direcionada a Intel x86_64. A validação de QCA9377 descrita acima foi feita no Sequoia 15.6 para o Dell e no Sequoia 15.7.5 para o build v0.0.100 do Samsung. Compilar com sucesso não valida o firmware, a configuração OpenCore ou o funcionamento do Wi-Fi em outro sistema.
+
+### Testar com OpenCore
+
+**Não substitua uma EFI interna funcional no primeiro teste.** Mantenha um backup recuperável e inicialize primeiro por uma EFI USB separada.
+
+1. Compile a kext e copie `build/out/Ath10kMac.kext` para `EFI/OC/Kexts/` na EFI USB. Ao substituir uma injeção antiga, feche o Ath10k Connectivity e substitua o bundle inteiro; não misture os dois diretórios `Contents`.
+2. Em `Kernel -> Add` do OpenCore, crie uma entrada para `Ath10kMac.kext` com:
+   - Arch: `x86_64`
+   - BundlePath: `Ath10kMac.kext`
+   - ExecutablePath: `Contents/MacOS/Ath10kMac`
+   - PlistPath: `Contents/Info.plist`
+   - Enabled: `True`
+3. Valide o `config.plist` com ferramentas compatíveis com sua versão do OpenCore e inicialize pela entrada OpenCore da USB.
+4. Confirme o carregamento da kext, busque uma rede, conecte pelo Ath10k Connectivity e verifique o tráfego antes de considerar qualquer mudança na EFI interna.
+
+As configurações do OpenCore variam entre computadores. Preserve a ordem das kexts existentes, o caminho do bundle em `Kernel -> Add` e outras kexts necessárias; este README não fornece uma EFI ou config.plist universal.
+
+### Relatar testes e problemas
+
+Relatos de outros computadores — especialmente com QCA9377 — são bem-vindos. Inclua:
+
+- Modelo do notebook e adaptador; revisão da placa, se conhecida; IDs PCI vendor/device e subsystem.
+- Versão/build do macOS, da Ath10kMac e do Ath10k Connectivity.
+- Banda Wi-Fi, canal e segurança da rede (por exemplo, WPA2-PSK com CCMP pairwise e TKIP para a chave de grupo).
+- O que aconteceu, o que era esperado e os passos para reproduzir.
+- Se o problema ocorre ao iniciar, buscar redes, autenticar/negociar, transferir dados, desconectar ou voltar do repouso.
+- Para atrasos no início ou reconexão, informe se verbose ou debug estavam ativos.
+
+Para coletar diagnósticos na pasta do projeto:
+
+```sh
+sudo sh scripts/test-runtime.sh > ~/Desktop/ath10k-runtime.txt
+```
+
+O script coleta amostras do estado da Ath10kMac, lê logs recentes do kernel e registra detalhes de interfaces de rede/DHCP. Ele grava o relatório na pasta Desktop; não faz upload. Revise e remova SSIDs, BSSIDs, endereços MAC, endereços IP, números de série e outros dados privados antes de anexar. Não inclua senhas de Wi-Fi nem uma EFI/config.plist sem redigir os dados.
+
+### Licença
+
+O código do projeto Ath10kMac neste repositório é distribuído sob a **GNU General Public License versão 3.0 (GPL-3.0)**. Consulte o [LICENSE](LICENSE) na raiz do repositório. Arquivos de terceiros e recursos incluídos podem ter termos próprios.
+
+O firmware QCA9377 é distribuído sob termos separados da Qualcomm Atheros e inclui avisos adicionais. Antes de redistribuir firmware, consulte [a licença do firmware](firmware/LICENSE.QualcommAtheros_ath10k), [os avisos do firmware](firmware/QCA9377/hw1.0/notice_ath10k_firmware-6.txt) e [o registro de proveniência](firmware/QCA9377/hw1.0/PROVENANCE.json). O payload de firmware preparado é derivado desses arquivos; a GPL na raiz não substitui os termos deles.
+
+O MacKernelSDK é incluído como submódulo Git e mantém a licença definida pelo projeto upstream. Consulte [Acidanthera/MacKernelSDK](https://github.com/acidanthera/MacKernelSDK).
+
+### Créditos
+
+Este fork se baseia em [jonasw8/Ath10kMac](https://github.com/jonasw8/Ath10kMac) e no trabalho da comunidade já reconhecido no projeto. Consulte os arquivos de código e a pasta firmware para licenças, proveniência e agradecimentos detalhados.
+
+---

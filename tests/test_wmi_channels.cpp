@@ -7,6 +7,7 @@ public:
     bool channelCredit=true,channelCE2=false;
     ChannelsDriver() {
         _wmiScanChannels={};
+        _wmiScan.generation=1;
         auto previous=_regs.tx3Consume;
         _regs.tx3Consume=[this,previous](){
             auto *p=static_cast<UInt8 *>(_wmiTxBuffer.virtualAddress());
@@ -15,20 +16,23 @@ public:
             assert(_wmiVdevCreate.completed && _wmiVdevCreate.txConsumed && _wmiScanChannels.txOwned);
             assert(_wmi.credits.outstanding==1 && _wmi.credits.available==1);
             // Independent wire expectation, including nested TLVs and packed half-dBm power fields.
-            assert(p[0]==2 && p[1]==1 && p[5]==8 && Ath10k::htcReadLE16(p+2)==1080);
+            const UInt32 channels=38u;
+            const UInt32 frameBytes=24+28*channels;
+            assert(p[0]==2 && p[1]==1 && p[5]==8 && Ath10k::htcReadLE16(p+2)==frameBytes-8);
             assert(Ath10k::htcReadLE16(p+12)==4 && Ath10k::htcReadLE16(p+14)==79);
-            assert(Ath10k::wmiReadLE32(p+16)==38 && Ath10k::htcReadLE16(p+20)==1064 && p[22]==18);
-            for(unsigned i=0;i<38;++i){
+            assert(Ath10k::wmiReadLE32(p+16)==channels && Ath10k::htcReadLE16(p+20)==28*channels && p[22]==18);
+            for(unsigned i=0;i<channels;++i){
+                const unsigned fullIndex=i;
                 const auto *ch=p+24+28*i;
                 assert(Ath10k::htcReadLE16(ch)==24 && Ath10k::htcReadLE16(ch+2)==80);
-                assert(Ath10k::wmiReadLE32(ch+4)==expectedScanFrequencies[i] && Ath10k::wmiReadLE32(ch+8)==expectedScanFrequencies[i]);
-                assert(!Ath10k::wmiReadLE32(ch+12) && Ath10k::wmiReadLE32(ch+16)==(i<13?0x81u:((i>=17 && i<=32)?0x480u:0x80u)));
+                assert(Ath10k::wmiReadLE32(ch+4)==expectedScanFrequencies[fullIndex] && Ath10k::wmiReadLE32(ch+8)==expectedScanFrequencies[fullIndex]);
+                assert(!Ath10k::wmiReadLE32(ch+12) && Ath10k::wmiReadLE32(ch+16)==(fullIndex<13?0x81u:((fullIndex>=17 && fullIndex<=32)?0x480u:0x80u)));
                 assert(Ath10k::wmiReadLE32(ch+20)==0x00141400 && Ath10k::wmiReadLE32(ch+24)==0x00001400);
                 assert(ch[20]==0 && ch[21]==20 && ch[22]==20 && ch[23]==0);
                 assert(ch[24]==0 && ch[25]==20 && ch[26]==0 && ch[27]==0);
             }
             auto *ring=static_cast<Ath10k::CEDescriptor32 *>(_ceSrcRings[3].virtualAddress());
-            assert(ring[_wmiScanChannels.txSlot].nbytes==1088 && ring[_wmiScanChannels.txSlot].flags==8);
+            assert(ring[_wmiScanChannels.txSlot].nbytes==frameBytes && ring[_wmiScanChannels.txSlot].flags==8);
             if(channelCredit)deliver(channelCE2?2:1,{UInt8(channelCE2?2:0),2,8,0,8,0,0,0,1,4,0,0,2,1,0,0});
         };
     }

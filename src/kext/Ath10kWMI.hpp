@@ -330,6 +330,9 @@ inline bool buildWMIRegdomain(UInt8 *f,UInt32 capacity,UInt8 endpoint,const Regu
     htcWriteLE32(f+32,p.ctl2);htcWriteLE32(f+36,p.ctl5);return true;
 }
 static constexpr UInt32 kWMIScanChannelsFrameBytes=24+28*kWMIScanChannelCount;
+// SCAN_CHAN_LIST is the firmware's regulatory channel table. It stays complete
+// so a later manual START_SCAN can include DFS channels; each START_SCAN carries
+// its own channel list and decides the channels actually visited.
 inline bool buildWMIScanChannels(UInt8 *f, UInt32 capacity, UInt8 endpoint,const RegulatoryPolicy *policy=nullptr) {
     const UInt32 count=regulatoryScanCount(policy),frameBytes=24+28*count;
     if (!f || !count || capacity<frameBytes || !endpoint || endpoint==255) return false;
@@ -382,8 +385,8 @@ inline bool buildWMIStopScan(UInt8 *f,UInt32 capacity,UInt8 endpoint,UInt32 id,U
     // wmi_stop_scan_cmd order is requestor, scan_id, req_type, vdev_id.
     return true;
 }
-inline bool buildWMIScan(UInt8 *f, UInt32 capacity, UInt8 endpoint,UInt32 id=kWMIScanId,bool connected=false,const RegulatoryPolicy *policy=nullptr) {
-    const UInt32 count=regulatoryScanCount(policy),frameBytes=140+4*count;
+inline bool buildWMIScan(UInt8 *f, UInt32 capacity, UInt8 endpoint,UInt32 id=kWMIScanId,bool connected=false,const RegulatoryPolicy *policy=nullptr,bool fast=false) {
+    const UInt32 count=regulatoryScanCountForMode(policy,fast),frameBytes=140+4*count;
     if (!f || !count || capacity<frameBytes || !endpoint || endpoint==255) return false;
     htcZero(f,frameBytes);
     f[0]=endpoint;f[1]=1;f[5]=9;
@@ -391,13 +394,14 @@ inline bool buildWMIScan(UInt8 *f, UInt32 capacity, UInt8 endpoint,UInt32 id=kWM
     htcWriteLE16(f+12,100);htcWriteLE16(f+14,77);
     // Fixed common: IDs, VDEV, priority, event mask, dwell/rest/probe times,
     // bounded firmware scan time, PASSIVE | CHAN_STAT_EVENT plus TLV filter inversion.
-    const UInt32 common[15]={id,kWMIScanRequestId,0,1,0x1ff,50,connected?100u:kWMIScanDwellMs,connected?150u:50u,500,0,0,0,kWMIScanFirmwareMs,5,0x31};
+    const UInt32 dwell=fast?kWMIScanFastDwellMs:kWMIScanDwellMs;
+    const UInt32 common[15]={id,kWMIScanRequestId,0,1,0x1ff,50,connected?100u:dwell,connected?150u:50u,500,0,0,0,kWMIScanFirmwareMs,5,0x31};
     for(UInt32 i=0;i<15;++i)htcWriteLE32(f+16+4*i,common[i]);
     htcWriteLE32(f+80,count); // num_channels; burst_duration at 76 remains zero.
     htcWriteLE32(f+84,1); // num_bssids; num_ssids, IE length, probes and MAC/mask zero.
     htcWriteLE16(f+116,4*count);htcWriteLE16(f+118,16);
     UInt32 slot=0;for(UInt32 i=0;i<kWMIScanChannelCount;++i)
-        if(!policy || regulatoryScanChannel(*policy,wmiScanChannel(i)))htcWriteLE32(f+120+4*slot++,wmiScanFrequency(i));
+        if(regulatoryScanChannelForMode(policy,wmiScanChannel(i),fast))htcWriteLE32(f+120+4*slot++,wmiScanFrequency(i));
     const UInt32 tail=120+4*count;
     htcWriteLE16(f+tail+2,19); // empty SSID ARRAY_FIXED_STRUCT
     htcWriteLE16(f+tail+4,8);htcWriteLE16(f+tail+6,19);

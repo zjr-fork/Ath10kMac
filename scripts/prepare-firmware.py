@@ -14,7 +14,10 @@ BOARD_MAGIC = b"QCA-ATH10K-BOARD\0"
 FW_MAGIC = b"QCA-ATH10K\0"
 BOARD_KEY = "bus=pci,vendor=168c,device=003e,subsystem-vendor=1028,subsystem-device=0310"
 BOARD_SIZE = 8124
-QCA9377_BOARD_KEY = "bus=pci,vendor=168c,device=0042,subsystem-vendor=1235,subsystem-device=0901"
+QCA9377_BOARD_KEY = "bus=pci,vendor=168c,device=0042,subsystem-vendor=1028,subsystem-device=1810"
+QCA9377_SAMSUNG_BOARD_KEY = "bus=pci,vendor=168c,device=0042,subsystem-vendor=144d,subsystem-device=4133"
+QCA9377_BOARD_SHA256 = "b2713b77c725b0ff81af75c85c3aeba97885d0f40174f715b1e39d5a9d50f4e7"
+QCA9377_SAMSUNG_BOARD_SHA256 = "cb4aa4796ed742722925d82eab92a85d9c400dda05e6f878b492264454b1b81d"
 
 class BoardNotFound(ValueError):
     """Only a well-formed API2 container without a match allows API1 fallback."""
@@ -149,7 +152,8 @@ def parse_segments(image):
     raise ValueError("SGMT DONE marker missing")
 
 
-def prepare_profile(root, folder, namespace, board_key, profile, identity, allow_fallback=False):
+def prepare_profile(root, folder, namespace, board_key, profile, identity, allow_fallback=False,
+                    outdir_name=None):
     board_container = (folder / "board-2.bin").read_bytes()
     fw_container = (folder / "firmware-6.bin").read_bytes()
     selection = "board-api2-exact"
@@ -169,6 +173,12 @@ def prepare_profile(root, folder, namespace, board_key, profile, identity, allow
             raise ValueError("QCA9377 firmware does not match the reviewed profile")
         if selection == "board-api1-fallback" and sha(board) != "127d35d82edb46278f30c448cbca664d755ff0d5fed57b649959cdbc4208c768":
             raise ValueError("QCA9377 fallback board does not match the reviewed profile")
+        reviewed_board = {
+            QCA9377_BOARD_KEY: QCA9377_BOARD_SHA256,
+            QCA9377_SAMSUNG_BOARD_KEY: QCA9377_SAMSUNG_BOARD_SHA256,
+        }.get(board_key)
+        if selection == "board-api2-exact" and reviewed_board and sha(board) != reviewed_board:
+            raise ValueError("QCA9377 exact board does not match the reviewed profile")
     segments, entry = parse_segments(parts[3])
     manifest = {
         "profile": profile, "board_key": board_key, "board_selection": selection,
@@ -215,7 +225,9 @@ def prepare_profile(root, folder, namespace, board_key, profile, identity, allow
     header += ["};", f"static constexpr UInt32 kFirmwareSegmentCount = {len(segments)};",
                f"static constexpr UInt32 kFirmwareSegmentDataBytes = {sum(s['length'] for s in segments)};",
                f"static constexpr UInt32 kFirmwareEntryAddress = 0x{entry:08x}u;", "}", ""]
-    outdir = root / "firmware/prepared" / ("QCA9377" if allow_fallback else "")
+    if outdir_name is None:
+        outdir_name = "QCA9377" if allow_fallback else ""
+    outdir = root / "firmware/prepared" / outdir_name
     outputs = {
         outdir / "board.bin": board,
         outdir / "otp.bin": parts[4],
@@ -244,7 +256,10 @@ def prepare(root):
         (root / 'firmware', 'Ath10kPayload', BOARD_KEY, 'QCA6174/hw3.2',
          ('0x003e', '0x1028', '0x0310', '10', '0x05030000u'), False),
         (root / 'firmware/QCA9377/hw1.0', 'Ath10kPayload9377', QCA9377_BOARD_KEY, 'QCA9377/hw1.1',
-         ('0x0042', '0x1235', '0x0901', '1', '0x05020001u'), True),
+         ('0x0042', '0x1028', '0x1810', '1', '0x05020001u'), True),
+        (root / 'firmware/QCA9377/hw1.0', 'Ath10kPayload9377Samsung', QCA9377_SAMSUNG_BOARD_KEY,
+         'QCA9377/hw1.1-samsung', ('0x0042', '0x144d', '0x4133', '1', '0x05020001u'), True,
+         'QCA9377-144d-4133'),
     ]
     for args in profiles:
         files, lines, entry = prepare_profile(root, *args)

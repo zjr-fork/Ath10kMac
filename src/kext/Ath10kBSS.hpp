@@ -107,7 +107,11 @@ inline void recordWMIBSS(WMIBSSCache &cache, const UInt8 *f, UInt32 bytes,
             if(!len || (id==1 && len>8) || len>32u-candidate.rateCount)candidate.ratesValid=false;
             else for(UInt32 i=0;i<len;++i)candidate.rates[candidate.rateCount++]=f[p+i];
         } else if(id==3){
-            if(haveDS || len!=1 || !f[p] || f[p]>14){rejectBSS(cache,BSSDS);return;}
+            // Some 5 GHz APs still include a DS Parameter Set with the
+            // primary channel above 14. The WMI receive channel is already
+            // validated against the scan plan, so the DS value only needs to
+            // be a plan channel in the same band as the received frame.
+            if(haveDS || len!=1 || !f[p] || !wmiScanChannelAllowed(f[p])){rejectBSS(cache,BSSDS);return;}
             haveDS=true;dsChannel=f[p];
         } else if(id==61){ // IEEE 802.11 HT Operation: primary channel + 21 bytes.
             if(haveHT || len!=22 || !f[p]){rejectBSS(cache,BSSHT);return;}
@@ -135,8 +139,9 @@ inline void recordWMIBSS(WMIBSSCache &cache, const UInt8 *f, UInt32 bytes,
         } else if(id==221 && len>=4 && f[p]==0 && f[p+1]==0x50 && f[p+2]==0xf2 && f[p+3]==1){candidate.wpaPresent=true;}
         p+=len;
     }
+    if(haveDS && ((dsChannel>14)!=(channel>14))){rejectBSS(cache,BSSChannelConflict);return;}
     if(haveDS && haveHT && dsChannel!=htChannel){rejectBSS(cache,BSSChannelConflict);return;}
-    candidate.advertisedChannel=haveHT?htChannel:dsChannel;
+    candidate.advertisedChannel=haveHT?htChannel:(haveDS?dsChannel:static_cast<UInt8>(channel));
     if(!haveSSID){rejectBSS(cache,BSSSSID);return;}
     UInt32 slot=cache.count;
     for(UInt32 n=0;n<cache.count;++n){

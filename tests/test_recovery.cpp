@@ -11,11 +11,14 @@ struct Gate {
  bool inside=false;
  template<class F,class D,class C,class R,class O> int runAction(F f,D *d,C *c,R *r,O *o){inside=true;int result=f(d,c,r,o);inside=false;return result;}
 };
+struct MockProvider {
+ template<class K,class V> void setProperty(K,V){}
+};
 class Ath10kPCIDevice {
 public:
  Ath10k::PowerState _power{};
  bool _systemSuspended=false,_reprobeRequested=false,_dmaQuarantine=false,inactive=false;
- void *_pci=this;bool terminateOK=true,resetQuarantines=false;unsigned resets=0,terminations=0,options=0,refs=1;
+ MockProvider provider;MockProvider *_pci=&provider;bool terminateOK=true,resetQuarantines=false;unsigned resets=0,terminations=0,options=0,refs=1;
  Gate gate;Gate *_wmiWorkLoop=&gate;
  struct {bool active=true;} _wmiLive;
  Ath10k::WMIScanState _wmiScan{};Ath10k::ConnectionState _connection{};
@@ -46,7 +49,7 @@ int main(){
  good._wmiScan.generation=10;good.fillControlInfo(response);
  assert(response.length==112 && response.data[32]==3 && !memcmp(response.data+33,"abc",3));
  assert(Ath10k::wmiReadLE32(response.data+4)==10 && int32_t(Ath10k::wmiReadLE32(response.data+12))==-50);
- assert(!strcmp(reinterpret_cast<char *>(response.data+68),"0.0.91"));
+ assert(!strcmp(reinterpret_cast<char *>(response.data+68),"0.0.102"));
  assert(Ath10k::wmiReadLE32(response.data)&512);
  good._wmiScan.completed=true;good._wmiScan.failed=true;good._wmiScan.cancelRequested=true;good._wmiScan.started=true;
  good.fillControlInfo(response);assert(Ath10k::wmiReadLE32(response.data+108)==15);

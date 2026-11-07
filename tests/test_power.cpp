@@ -27,6 +27,7 @@ public:
  Gate loop;Gate *_wmiWorkLoop=&loop;
  Ath10k::PowerState _power{};volatile UInt32 _powerIOBlock=0;
  IONotifier *_powerNotifier=nullptr;bool _systemSuspended=false,_dmaQuarantine=false;
+ Ath10kPCIDevice *_pci=this;
  struct{bool active=true;const char *status="active";} _wmiLive;
  unsigned resets=0,published=0;bool resetQuarantines=false,pciPowered=true;
  bool preparePowerNotifications();void releasePowerNotifications();bool powerIOBlocked();bool powerRestartAllowed();

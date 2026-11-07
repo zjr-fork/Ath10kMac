@@ -19,22 +19,29 @@ class ScanDriver:public ChannelsDriver {
 public:
     unsigned scans=0;
     bool scanCredit=true;
-    ScanDriver() {
-        _wmiScan={};auto prior=_regs.tx3Consume;
+    explicit ScanDriver(bool fast=false):ChannelsDriver() {
+        _wmiScan={};_wmiScan.generation=fast?0:1;auto prior=_regs.tx3Consume;
         _regs.tx3Consume=[this,prior](){
             auto *p=static_cast<UInt8 *>(_wmiTxBuffer.virtualAddress());
             if(Ath10k::wmiReadLE32(p+8)!=0x3001){prior();return;}
             ++scans;assert(_wmiScanChannels.completed && _wmiScan.txOwned && _wmi.credits.outstanding==1);
-            assert(p[0]==2 && p[1]==1 && p[5]==9 && Ath10k::htcReadLE16(p+2)==284);
+            const bool fastMode=_wmiScan.generation==0;
+            const UInt32 channels=fastMode?22u:38u,frameBytes=140+4*channels;
+            assert(p[0]==2 && p[1]==1 && p[5]==9 && Ath10k::htcReadLE16(p+2)==frameBytes-8);
             assert(Ath10k::htcReadLE16(p+12)==100 && Ath10k::htcReadLE16(p+14)==77);
-            const UInt32 fixed[25]={0xa036,0xa001,0,1,0x1ff,50,500,50,500,0,0,0,30000,5,0x31,0,38,1,0,0,0,0,0,0,0};
+            const UInt32 fixed[25]={0xa036,0xa001,0,1,0x1ff,50,fastMode?200u:500u,50,500,0,0,0,30000,5,0x31,0,channels,1,0,0,0,0,0,0,0};
             for(unsigned i=0;i<25;++i)assert(Ath10k::wmiReadLE32(p+16+4*i)==fixed[i]);
-            assert(Ath10k::htcReadLE16(p+116)==152 && p[118]==16);
-            for(unsigned i=0;i<38;++i)assert(Ath10k::wmiReadLE32(p+120+4*i)==expectedScanFrequencies[i]);
+            assert(Ath10k::htcReadLE16(p+116)==4*channels && p[118]==16);
+            unsigned slot=0;
+            for(UInt32 f:expectedScanFrequencies){
+                if(fastMode && f>=5260 && f<=5720)continue;
+                assert(Ath10k::wmiReadLE32(p+120+4*slot++)==f);
+            }
+            assert(slot==channels);
             const UInt8 tail[20]={0,0,19,0,8,0,19,0,255,255,255,255,255,255,0,0,0,0,17,0};
-            assert(!memcmp(p+272,tail,20));
+            assert(!memcmp(p+120+4*channels,tail,20));
             auto *ring=static_cast<Ath10k::CEDescriptor32 *>(_ceSrcRings[3].virtualAddress());
-            assert(ring[_wmiScan.txSlot].nbytes==292 && ring[_wmiScan.txSlot].flags==8);
+            assert(ring[_wmiScan.txSlot].nbytes==frameBytes && ring[_wmiScan.txSlot].flags==8);
             if(scanCredit)deliver(1,{0,2,8,0,8,0,0,0,1,4,0,0,2,1,0,0});
         };
     }
@@ -74,6 +81,13 @@ public:
 #ifndef ATH10K_WMI_BSS_TEST
 int main() {
     reusableScanTests();
+    {
+        // The first boot scan is fast: 22 connectable (non-DFS) channels at 200 ms.
+        ScanDriver fast(true);fast.launch();fast.deliver(2,scanPacket(1));fast.tick(1040);
+        fast.deliver(2,scanPacket(2));fast.tick(1050);
+        assert(fast._wmiScan.completed && fast.scans==1 && fast._wmiLive.active);
+        fast.releaseWMIRuntime();
+    }
     ScanDriver d;d.launch();d.deliver(2,scanPacket(1));d.tick(1040);
     assert(d._wmiScan.started && d._wmiScan.creditReturned && !d._wmiScan.completed);
     d.deliver(2,scanPacket(8));d.tick(1050);

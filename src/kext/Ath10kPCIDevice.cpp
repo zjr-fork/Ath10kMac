@@ -31,6 +31,15 @@ static constexpr UInt16 kMSIControlEnable = 0x0001;
 static constexpr UInt16 kMSIControl64Bit = 0x0080;
 static constexpr UInt16 kMSIControlPerVectorMask = 0x0100;
 
+static void ath10kSetRecoveryStatus(IOService *provider, const char *phase, const char *detail)
+{
+    if (!provider)
+        return;
+    provider->setProperty("Ath10kRecoveryPhase", phase);
+    if (detail)
+        provider->setProperty("Ath10kRecoveryDetail", detail);
+}
+
 static bool ath10kBytesEqual(const void *lhs, const void *rhs, UInt32 length)
 {
     if (!lhs || !rhs)
@@ -79,7 +88,7 @@ bool Ath10kPCIDevice::start(IOService *provider)
     if(auto *timeout=OSDynamicCast(OSNumber,getProperty("Ath10kBeaconTimeoutMs"))){
         const UInt32 value=timeout->unsigned32BitValue();_connection.beaconTimeoutMs=value>=10000 && value<=120000?value:30000;
     }
-    IOLog("Ath10kMac: start v0.0.91 (STA HT/VHT, secure RX and Ethernet traffic)\n");
+    IOLog("Ath10kMac: start v0.0.102 (deferred device initialization)\n");
 
     if (!super::start(provider)) {
         IOLog("Ath10kMac: super::start failed\n");
@@ -91,6 +100,7 @@ bool Ath10kPCIDevice::start(IOService *provider)
         IOLog("Ath10kMac: provider is not IOPCIDevice\n");
         return false;
     }
+    ath10kSetRecoveryStatus(_pci, "driver-starting", "Ath10kMac matched the PCI device");
 
     if (!_pci->open(this)) {
         IOLog("Ath10kMac: failed to open PCI provider\n");
@@ -124,21 +134,56 @@ bool Ath10kPCIDevice::start(IOService *provider)
     validateRegisterLayer();
     dumpHardwareCandidates();
 
+    // Publish the service before the lengthy target/firmware probe. The probe
+    // runs on a normal-priority thread call so IOConfigThread can return and
+    // macOS can finish booting while Wi-Fi initialization continues.
+    ath10kSetRecoveryStatus(_pci, "probe-queued", "PCI setup complete; firmware probe is queued");
+    registerService();
+    _deferredProbeCall = thread_call_allocate_with_priority(
+        deferredProbeCall, this, THREAD_CALL_PRIORITY_USER);
+    if (_deferredProbeCall) {
+        thread_call_enter(_deferredProbeCall);
+        IOLog("Ath10kMac: deferred target probe queued; network becomes available after initialization\n");
+        return true;
+    }
+
+    IOLog("Ath10kMac: deferred probe worker unavailable; falling back to synchronous initialization\n");
+    runDeferredProbe();
+    return true;
+}
+
+void Ath10kPCIDevice::deferredProbeCall(thread_call_param_t param0, thread_call_param_t)
+{
+    auto *self = static_cast<Ath10kPCIDevice *>(param0);
+    if (self)
+        self->runDeferredProbe();
+}
+
+void Ath10kPCIDevice::runDeferredProbe()
+{
+    IOLog("Ath10kMac: deferred target probe begin\n");
+    ath10kSetRecoveryStatus(_pci, "probe-running", "Firmware and runtime initialization are in progress");
+    const char *probeFailure = "target-probe-did-not-run";
+
     // 0.0.91 probes for a device-specific IOMapper, but a null result is valid
     // on systems without an iommu-parent. IODMACommand::kMapped is still used
     // with the default/null mapper path, and all potentially double-buffered
     // memory is explicitly synchronized around DMA ownership changes.
     if (prepareDeviceDMAMapper()) {
         if (allocateCERings()) {
-            probeTarget();
+            const bool targetReady = probeTarget();
+            if (!targetReady)
+                probeFailure = "target-probe-failed";
             if (!_dmaQuarantine && !_runtimeActive)
                 runDMATest();
             else
                 IOLog("Ath10kMac: DMA regression test skipped while runtime or quarantine is active\n");
         } else {
+            probeFailure = "CE-ring-allocation-failed";
             IOLog("Ath10kMac: CE ring allocation failed; reset/CE transfer test skipped\n");
         }
     } else {
+        probeFailure = "DMA-mapper-preparation-failed";
         IOLog("Ath10kMac: DMA mapping policy preparation failed; invasive Phase 2 test skipped\n");
     }
 
@@ -158,13 +203,20 @@ bool Ath10kPCIDevice::start(IOService *provider)
         if (registerPowerDriver(this, states, 2) != kIOReturnSuccess) {
             _wmiWorkLoop->runAction(controlWMIRuntime, this, const_cast<char *>("power-registration-failed"));
         } else {
-            provider->joinPMtree(this);
+            _pci->joinPMtree(this);
             changePowerStateTo(1);
             _wmiWorkLoop->runAction(controlWMIRuntime, this);
         }
     }
-    registerService();
-
+    if (_wmiLive.active && !_dmaQuarantine) {
+        ath10kSetRecoveryStatus(_pci, "ready", "Firmware runtime is active; waiting for app scan/connect");
+    } else {
+        const bool hasRuntimeFailure = _wmiLive.status &&
+            strcmp(_wmiLive.status, "not-run") != 0;
+        const char *detail = _dmaQuarantine ? "DMA safety quarantine blocked initialization" :
+            (hasRuntimeFailure ? _wmiLive.status : probeFailure);
+        ath10kSetRecoveryStatus(_pci, "probe-failed", detail);
+    }
     IOLog("Ath10kMac: READY %s pci-rev=%02x BAR0=%p len=0x%llx\n",
           chipName(), _revisionId, _bar0,
           (unsigned long long)_bar0Map->getLength());
@@ -175,7 +227,16 @@ bool Ath10kPCIDevice::start(IOService *provider)
         IOLog("Ath10kMac: target profile unresolved after cold-reset diagnostic\n");
     }
     IOLog("Ath10kMac: next=explicit open STA configuration; Ethernet stays down until association\n");
-    return true;
+}
+
+void Ath10kPCIDevice::cancelDeferredProbe()
+{
+    if (!_deferredProbeCall)
+        return;
+    thread_call_cancel_wait(_deferredProbeCall);
+    if (!thread_call_free(_deferredProbeCall))
+        IOLog("Ath10kMac: deferred probe worker could not be released\n");
+    _deferredProbeCall = nullptr;
 }
 
 bool Ath10kPCIDevice::stopDMAForRelease()
@@ -200,10 +261,14 @@ bool Ath10kPCIDevice::stopDMAForRelease()
 
 void Ath10kPCIDevice::stop(IOService *provider)
 {
+    // Do not release BAR, DMA, or PCI state while the deferred probe uses it.
+    cancelDeferredProbe();
     // Rematching is queued only after every old DMA mapping/IRQ has been
     // stopped and detached. Retain provider until registerService returns.
     IOService *rematch=_reprobeRequested?provider:nullptr;
     if(rematch)rematch->retain();
+    if (_reprobeRequested)
+        ath10kSetRecoveryStatus(provider, "stop-started", "Driver stop began for a requested recovery rematch");
     IOLog("Ath10kMac: stop %s\n", chipName());
     releasePowerNotifications();
     if (_powerManaged) { PMstop(); _powerManaged=false; }
@@ -224,6 +289,12 @@ void Ath10kPCIDevice::stop(IOService *provider)
     }
 
     const bool releaseDMA = stopDMAForRelease();
+    if (_reprobeRequested) {
+        ath10kSetRecoveryStatus(provider,
+            releaseDMA && !_dmaQuarantine ? "stop-dma-released" : "stop-dma-blocked",
+            releaseDMA && !_dmaQuarantine ? "DMA ownership was released safely" :
+                "Safe DMA release failed; provider rematch was withheld");
+    }
     restorePCIeBringupParity();
     if (releaseDMA) {
         _ceDiagBounce.release();
@@ -258,13 +329,19 @@ void Ath10kPCIDevice::stop(IOService *provider)
     if(_networkInterface){detachInterface(_networkInterface,true);_networkInterface->release();_networkInterface=nullptr;}
     super::stop(provider);
     if(rematch){
-        if(releaseDMA && !_dmaQuarantine)rematch->registerService(kIOServiceAsynchronous);
+        if(releaseDMA && !_dmaQuarantine) {
+            ath10kSetRecoveryStatus(rematch, "rematch-queued", "PCI provider registration queued for a new driver instance");
+            rematch->registerService(kIOServiceAsynchronous);
+        } else {
+            ath10kSetRecoveryStatus(rematch, "rematch-suppressed", "Driver stopped without a safe DMA release");
+        }
         rematch->release();
     }
 }
 
 void Ath10kPCIDevice::free()
 {
+    cancelDeferredProbe();
     releasePowerNotifications();
     if (_powerManaged) { PMstop(); _powerManaged=false; }
     releaseWMIRuntime();
@@ -1137,6 +1214,10 @@ void Ath10kPCIDevice::publishWMIRuntimeProperties()
     setProperty("Ath10kWMIScanVisitedMask",_wmiScan.visitedMask,64);
     setProperty("Ath10kWMIScanAllChannelsObserved",_wmiScan.visitedMask==((1ULL<<Ath10k::kWMIScanChannelCount)-1));
     setProperty("Ath10kWMIScanDwellMs",Ath10k::kWMIScanDwellMs,32);
+    setProperty("Ath10kWMIScanFastDwellMs",Ath10k::kWMIScanFastDwellMs,32);
+    setProperty("Ath10kWMIScanFastChannelCount",Ath10k::regulatoryScanCountForMode(&_regulatory,true),32);
+    setProperty("Ath10kWMIScanMode",_wmiScan.generation==0?"initial-fast":"manual-full");
+    setProperty("Ath10kWMIScanActiveDwellMs",_wmiScan.generation==0?Ath10k::kWMIScanFastDwellMs:Ath10k::kWMIScanDwellMs,32);
     setProperty("Ath10kWMIScanHostTimeoutMs",Ath10k::kWMIScanHostMs,32);
     setProperty("Ath10kWMIScanPowerHalfDbm",Ath10k::kWMIScanPowerHalfDbm,32);
     setProperty("Ath10kWMIScanPowerSource","regdb-country-board-fw-bounds-and-host-ceiling");
@@ -2450,7 +2531,8 @@ const char *Ath10kPCIDevice::serviceWMIScanChannels(UInt64 nowMs)
             return state.status;
         state.submitted=true;state.status="waiting-for-tx-and-credit";
         IOLog("Ath10kMac: WMI SCAN_CHAN_LIST SUBMITTED channels=%u bands=2.4+5GHz passive=yes sequence=8 bytes=%u credits=%u outstanding=%u\n",
-              Ath10k::regulatoryScanCount(&_regulatory),Ath10k::htcReadLE16(static_cast<UInt8 *>(_wmiTxBuffer.virtualAddress())+2)+8,_wmi.credits.available,_wmi.credits.outstanding);
+              Ath10k::regulatoryScanCount(&_regulatory),
+              Ath10k::htcReadLE16(static_cast<UInt8 *>(_wmiTxBuffer.virtualAddress())+2)+8,_wmi.credits.available,_wmi.credits.outstanding);
     }
     if (!state.submitted) return state.status; // No retry after any failed attempt.
     state.elapsedMs=nowMs-state.startedMs;
@@ -2468,7 +2550,8 @@ const char *Ath10kPCIDevice::serviceWMIScanChannels(UInt64 nowMs)
         state.completed=true;state.status="transport-complete-scan-not-started";
         // Transport completion does not prove channel acceptance or scan success.
         IOLog("Ath10kMac: WMI SCAN_CHAN_LIST TRANSPORT PASS channels=%u bands=2.4+5GHz passive=yes tx-consumed=yes credit-returned=yes elapsed=%llu ms; scan not started; channel acceptance not confirmed\n",
-              Ath10k::regulatoryScanCount(&_regulatory),static_cast<unsigned long long>(state.elapsedMs));
+              Ath10k::regulatoryScanCount(&_regulatory),
+              static_cast<unsigned long long>(state.elapsedMs));
     }
     return nullptr;
 }
@@ -2476,6 +2559,7 @@ const char *Ath10kPCIDevice::serviceWMIScanChannels(UInt64 nowMs)
 const char *Ath10kPCIDevice::serviceWMIScan(UInt64 nowMs)
 {
     auto &state=_wmiScan;
+    const bool fast=state.generation==0;
     if (state.completed) return nullptr;
     if (!state.attempted && (_connection.stats.step || _connection.maintenance.step || _connection.radio.step || _connection.radio.appliedPS))return nullptr;
     if (!state.attempted) {
@@ -2493,7 +2577,7 @@ const char *Ath10kPCIDevice::serviceWMIScan(UInt64 nowMs)
             (!state.generation && snap.srcWriteIndex!=_wmiScanChannels.txNext) || !_ceSrcRings[3].syncFromDevice()) return state.status;
         state.status="scan-build";
         if (!Ath10k::buildWMIScan(static_cast<UInt8 *>(_wmiTxBuffer.virtualAddress()),
-            static_cast<UInt32>(_wmiTxBuffer.length()),_htcWMIControl.endpoint,state.id,_connection.stage==Ath10k::LinkStage::Connected,&_regulatory)) return state.status;
+            static_cast<UInt32>(_wmiTxBuffer.length()),_htcWMIControl.endpoint,state.id,_connection.stage==Ath10k::LinkStage::Connected,&_regulatory,fast)) return state.status;
         const UInt32 frameBytes=8+Ath10k::htcReadLE16(static_cast<const UInt8 *>(_wmiTxBuffer.virtualAddress())+2);
         state.txSlot=snap.srcWriteIndex;state.txNext=Ath10k::ceRingNext(state.txSlot,entries);
         auto *ring=static_cast<Ath10k::CEDescriptor32 *>(_ceSrcRings[3].virtualAddress());
@@ -2511,8 +2595,10 @@ const char *Ath10kPCIDevice::serviceWMIScan(UInt64 nowMs)
         if (!_regs.write32(doorbell,state.txNext) || !_regs.read32(doorbell,back) || back!=state.txNext)
             return state.status;
         state.submitted=true;state.status="waiting-for-scan-events";
-        IOLog("Ath10kMac: WMI START_SCAN SUBMITTED id=0x%x request=0xa001 vdev=0 channels=%u passive=yes sequence=9 bytes=%u credits=%u outstanding=%u\n",
-              state.id,Ath10k::regulatoryScanCount(&_regulatory),Ath10k::htcReadLE16(static_cast<UInt8 *>(_wmiTxBuffer.virtualAddress())+2)+8,_wmi.credits.available,_wmi.credits.outstanding);
+        IOLog("Ath10kMac: WMI START_SCAN SUBMITTED id=0x%x request=0xa001 vdev=0 mode=%s channels=%u dwell=%u passive=yes sequence=9 bytes=%u credits=%u outstanding=%u\n",
+              state.id,fast?"initial-fast":"manual-full",Ath10k::regulatoryScanCountForMode(&_regulatory,fast),
+              fast?Ath10k::kWMIScanFastDwellMs:Ath10k::kWMIScanDwellMs,
+              Ath10k::htcReadLE16(static_cast<UInt8 *>(_wmiTxBuffer.virtualAddress())+2)+8,_wmi.credits.available,_wmi.credits.outstanding);
     }
     if (!state.submitted) return state.status; // No retry after any failed attempt.
     state.elapsedMs=nowMs-state.startedMs;
@@ -2552,8 +2638,10 @@ const char *Ath10kPCIDevice::serviceWMIScan(UInt64 nowMs)
     if (state.txConsumed && state.creditReturned && (state.started || state.cancelRequested) && state.terminal && (!state.stopSubmitted || state.stopConsumed)) {
         state.completed=true;state.status="scan-completed";
         // Success requires correlated STARTED and COMPLETED(reason=0), plus TX/credit.
-        IOLog("Ath10kMac: WMI START_SCAN PASS id=0x%x channels=%u started=%s completed=yes reason=%u tx-consumed=yes credit-returned=yes elapsed=%llu ms\n",
-              state.id,Ath10k::regulatoryScanCount(&_regulatory),state.started?"yes":"no",state.reason,static_cast<unsigned long long>(state.elapsedMs));
+        IOLog("Ath10kMac: WMI START_SCAN PASS id=0x%x mode=%s channels=%u dwell=%u started=%s completed=yes reason=%u tx-consumed=yes credit-returned=yes elapsed=%llu ms\n",
+              state.id,fast?"initial-fast":"manual-full",Ath10k::regulatoryScanCountForMode(&_regulatory,fast),
+              fast?Ath10k::kWMIScanFastDwellMs:Ath10k::kWMIScanDwellMs,
+              state.started?"yes":"no",state.reason,static_cast<unsigned long long>(state.elapsedMs));
     }
     return nullptr;
 }
@@ -2691,7 +2779,7 @@ void Ath10kPCIDevice::validateRegisterLayer()
     IOLog("Ath10kMac: MMIO layer attached=%s length=0x%llx\n",
           _regs.attached() ? "yes" : "no",
           (unsigned long long)_regs.length());
-    IOLog("Ath10kMac: MMIO policy=QCA6174 Host Interest + board/OTP/WLAN + BMI_DONE + HTC READY + Phase 3 HTC services in 0.0.91\n");
+    IOLog("Ath10kMac: MMIO policy=QCA6174 Host Interest + board/OTP/WLAN + BMI_DONE + HTC READY + Phase 3 HTC services in 0.0.102\n");
 
     if (!_regs.valid32(0))
         IOLog("Ath10kMac: ERROR BAR0 cannot satisfy even a 32-bit MMIO access\n");
@@ -6572,14 +6660,14 @@ bool Ath10kPCIDevice::probeTarget()
         IOLog("Ath10kMac: WMI bootstrap status=%s service-ready=%s safe-reset=%s; inspect WMIRuntimeActive for live receiver\n",
               _wmi.status, _wmi.serviceReady ? "yes" : "no", quiesceOk ? "yes" : "no");
     else if (runtimeOk)
-        IOLog("Ath10kMac: NOTE 0.0.91 Phase 3 step 2 active: HTC reserved control, WMI_CONTROL and HTT_DATA endpoints connected; SETUP_COMPLETE deferred until CE2/WMI RX; data TX disabled\n");
+        IOLog("Ath10kMac: NOTE Phase 3 step 2 active: HTC reserved control, WMI_CONTROL and HTT_DATA endpoints connected; SETUP_COMPLETE deferred until CE2/WMI RX; data TX disabled\n");
     else if (_htcAttempted && !htcOk)
-        IOLog("Ath10kMac: NOTE 0.0.91 HTC service setup incomplete status=%s; target was safely reset=%s\n",
+        IOLog("Ath10kMac: NOTE HTC service setup incomplete status=%s; target was safely reset=%s\n",
               _htcStatus, quiesceOk ? "yes" : "no");
     else if (complete)
-        IOLog("Ath10kMac: NOTE 0.0.91 received valid HTC READY then safe reset. Firmware is no longer running; HTC service setup/WMI/HTT and Wi-Fi interface are not active\n");
+        IOLog("Ath10kMac: NOTE received valid HTC READY then safe reset. Firmware is no longer running; HTC service setup/WMI/HTT and Wi-Fi interface are not active\n");
     else
-        IOLog("Ath10kMac: NOTE 0.0.91 milestone incomplete; inspect Host Interest, board, OTP, WLAN, BOOT/HTC, CE/IRQ runtime and quiesce telemetry\n");
+        IOLog("Ath10kMac: NOTE initialization milestone incomplete; inspect Host Interest, board, OTP, WLAN, BOOT/HTC, CE/IRQ runtime and quiesce telemetry\n");
 
     return complete;
 }
@@ -6643,6 +6731,15 @@ bool Ath10kPCIDevice::allocateCERings()
     _ceRingAllocationSucceeded = false;
     _ceRingAllocatedCount = 0;
     _ceRingAllocatedBytes = 0;
+    _ceRingAllocationFailureCE = 0xffffffffu;
+    _ceRingAllocationFailureDirection = "none";
+    _ceRingAllocationFailureStage = "not-run";
+    _ceRingAllocationFailureStatus = kIOReturnSuccess;
+    _ceRingFailureRequestedBytes = 0;
+    _ceRingFailureDMAAddress = 0;
+    _ceRingFailureSegmentLength = 0;
+    _ceRingFailurePhysicalAddress = 0;
+    _ceRingFailureAlignment = 0;
     releaseCERings();
 
     if (!_dmaMapperReady) {
@@ -6662,6 +6759,15 @@ bool Ath10kPCIDevice::allocateCERings()
         if (cfg.srcEntries != 0) {
             if (!_ceSrcRings[ceId].allocate(ceId, Ath10kCERingDirection::Source,
                                            cfg.srcEntries, _dmaMapper)) {
+                _ceRingAllocationFailureCE = ceId;
+                _ceRingAllocationFailureDirection = "src";
+                _ceRingAllocationFailureStage = _ceSrcRings[ceId].allocationFailure();
+                _ceRingAllocationFailureStatus = _ceSrcRings[ceId].allocationFailureStatus();
+                _ceRingFailureRequestedBytes = _ceSrcRings[ceId].allocationFailureRequestedBytes();
+                _ceRingFailureDMAAddress = _ceSrcRings[ceId].allocationFailureDMAAddress();
+                _ceRingFailureSegmentLength = _ceSrcRings[ceId].allocationFailureSegmentLength();
+                _ceRingFailurePhysicalAddress = _ceSrcRings[ceId].allocationFailurePhysicalAddress();
+                _ceRingFailureAlignment = _ceSrcRings[ceId].allocationFailureAlignment();
                 IOLog("Ath10kMac: CE%u src ring allocation ERROR entries=%u\n",
                       ceId, cfg.srcEntries);
                 releaseCERings();
@@ -6679,6 +6785,15 @@ bool Ath10kPCIDevice::allocateCERings()
         if (cfg.dstEntries != 0) {
             if (!_ceDstRings[ceId].allocate(ceId, Ath10kCERingDirection::Destination,
                                            cfg.dstEntries, _dmaMapper)) {
+                _ceRingAllocationFailureCE = ceId;
+                _ceRingAllocationFailureDirection = "dst";
+                _ceRingAllocationFailureStage = _ceDstRings[ceId].allocationFailure();
+                _ceRingAllocationFailureStatus = _ceDstRings[ceId].allocationFailureStatus();
+                _ceRingFailureRequestedBytes = _ceDstRings[ceId].allocationFailureRequestedBytes();
+                _ceRingFailureDMAAddress = _ceDstRings[ceId].allocationFailureDMAAddress();
+                _ceRingFailureSegmentLength = _ceDstRings[ceId].allocationFailureSegmentLength();
+                _ceRingFailurePhysicalAddress = _ceDstRings[ceId].allocationFailurePhysicalAddress();
+                _ceRingFailureAlignment = _ceDstRings[ceId].allocationFailureAlignment();
                 IOLog("Ath10kMac: CE%u dst ring allocation ERROR entries=%u\n",
                       ceId, cfg.dstEntries);
                 releaseCERings();
@@ -7025,7 +7140,7 @@ void Ath10kPCIDevice::publishDiagnosticProperties()
     setProperty("Ath10kOTPMilestoneSucceeded", _otpDownloadSucceeded && _otpExecuteSucceeded &&
                 _otpResultAccepted && (_bmiQuiesceSucceeded || _runtimeActive) && !_dmaQuarantine);
     setProperty("Ath10kBMIDoneSent", _boot.doneSent);
-    setProperty("Ath10kDriverVersion", "0.0.91");
+    setProperty("Ath10kDriverVersion", "0.0.102");
     setProperty("Ath10kHTCAttempted", _htcAttempted);
     setProperty("Ath10kWMIInitStatus",_wmiInit.status);
     setProperty("Ath10kWMIInitSubmitted",_wmiInit.submitted);
@@ -7228,6 +7343,15 @@ void Ath10kPCIDevice::publishDiagnosticProperties()
     setProperty("Ath10kCERingAllocationSucceeded", _ceRingAllocationSucceeded);
     setProperty("Ath10kCERingsAllocated", (UInt64)_ceRingAllocatedCount, 32);
     setProperty("Ath10kCERingAllocatedBytes", (UInt64)_ceRingAllocatedBytes, 64);
+    setProperty("Ath10kCERingAllocationFailureCE", (UInt64)_ceRingAllocationFailureCE, 32);
+    setProperty("Ath10kCERingAllocationFailureDirection", _ceRingAllocationFailureDirection);
+    setProperty("Ath10kCERingAllocationFailureStage", _ceRingAllocationFailureStage);
+    setProperty("Ath10kCERingAllocationFailureStatus", (UInt64)(UInt32)_ceRingAllocationFailureStatus, 32);
+    setProperty("Ath10kCERingFailureRequestedBytes", _ceRingFailureRequestedBytes, 64);
+    setProperty("Ath10kCERingFailureDMAAddress", _ceRingFailureDMAAddress, 64);
+    setProperty("Ath10kCERingFailureSegmentLength", _ceRingFailureSegmentLength, 64);
+    setProperty("Ath10kCERingFailurePhysicalAddress", _ceRingFailurePhysicalAddress, 64);
+    setProperty("Ath10kCERingFailureAlignment", _ceRingFailureAlignment, 64);
     setProperty("Ath10kCERingProgramAttempted", _ceRingProgramAttempted);
     setProperty("Ath10kCERingProgramSucceeded", _ceRingProgramSucceeded);
     setProperty("Ath10kCERingRestoreSucceeded", _ceRingRestoreSucceeded);
