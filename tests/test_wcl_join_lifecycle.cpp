@@ -59,6 +59,8 @@ int main() {
     if (!wrap.finish(0xffffffffu, Ath10kWCLJoinLifecycle::kAborted)) return 41;
     if (!wrap.begin(1)) return 42;
     if (wrap.begin(0x80000001u)) return 43;
+    if (!Ath10kWCLJoinLifecycle::isNewerGeneration(1, 0xffffffffu)) return 47;
+    if (Ath10kWCLJoinLifecycle::isNewerGeneration(0x80000000u, 0)) return 48;
 
     // Reset invalidates callbacks but preserves the generation high-water mark.
     state.reset();
