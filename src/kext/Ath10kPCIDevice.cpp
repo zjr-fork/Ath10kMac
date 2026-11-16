@@ -22,6 +22,9 @@ struct NativeScanStatusArgs {
     UInt32 generation;
     Ath10kNativeScanStatus *status;
 };
+struct NativeLinkSnapshotArgs {
+    Ath10kNativeLinkSnapshot *snapshot;
+};
 
 // Standard PCI configuration-space offsets/capability IDs.
 static constexpr UInt8 kPCIConfigProgIf        = 0x09;
@@ -2615,6 +2618,60 @@ IOReturn Ath10kPCIDevice::getNativeScanStatus(UInt32 generation,Ath10kNativeScan
     if(!generation || !status || !_wmiWorkLoop || isInactive())return kIOReturnBadArgument;
     NativeScanStatusArgs args{generation,status};
     return _wmiWorkLoop->runAction(nativeScanStatusAction,this,&args,nullptr,nullptr);
+}
+
+IOReturn Ath10kPCIDevice::copyNativeLinkSnapshot(Ath10kNativeLinkSnapshot *snapshot)
+{
+    if(!snapshot || !_wmiWorkLoop || isInactive())return kIOReturnBadArgument;
+    NativeLinkSnapshotArgs args{snapshot};
+    return _wmiWorkLoop->runAction(nativeLinkSnapshotAction,this,&args,nullptr,nullptr);
+}
+
+IOReturn Ath10kPCIDevice::nativeLinkSnapshotAction(OSObject *owner,void *input,void *,void *,void *)
+{
+    auto *self=OSDynamicCast(Ath10kPCIDevice,owner);
+    if(!self || !input)return kIOReturnBadArgument;
+    auto &args=*static_cast<NativeLinkSnapshotArgs *>(input);
+    if(!args.snapshot)return kIOReturnBadArgument;
+
+    auto &out=*args.snapshot;
+    UInt8 *raw=reinterpret_cast<UInt8 *>(&out);
+    for(UInt32 i=0;i<sizeof(out);++i)raw[i]=0;
+    const auto &s=self->_connection;
+    out.header.version=ATH10K_NATIVE_ABI_VERSION;
+    out.header.size=static_cast<UInt16>(sizeof(out));
+    out.header.operation=ATH10K_NATIVE_OP_GET_LINK_SNAPSHOT;
+    out.header.status=ATH10K_NATIVE_STATUS_OK;
+    out.header.payload_bytes=static_cast<UInt32>(sizeof(out)-sizeof(out.header));
+
+    using Ath10k::LinkStage;
+    if(s.disconnect!=Ath10k::DisconnectStage::None)
+        out.state=ATH10K_NATIVE_LINK_DISCONNECTING;
+    else if(s.stage==LinkStage::Disabled)
+        out.state=ATH10K_NATIVE_LINK_IDLE;
+    else if(s.stage==LinkStage::Scan)
+        out.state=ATH10K_NATIVE_LINK_SCANNING;
+    else if(s.stage==LinkStage::Connected)
+        out.state=ATH10K_NATIVE_LINK_CONNECTED;
+    else if(s.stage==LinkStage::Failed)
+        out.state=ATH10K_NATIVE_LINK_FAILED;
+    else
+        out.state=ATH10K_NATIVE_LINK_ASSOCIATING;
+
+    if(s.ssidLength && s.ssidLength<=ATH10K_NATIVE_MAX_SSID) {
+        out.ssid_length=s.ssidLength;
+        for(UInt32 i=0;i<s.ssidLength;++i)out.ssid[i]=s.ssid[i];
+    }
+    for(UInt32 i=0;i<6;++i)out.bssid[i]=s.bssid[i];
+    out.channel=s.operatingChannel<=0xffffu?static_cast<UInt16>(s.operatingChannel):0;
+    out.rssi_dbm=s.signalDbm==INT32_MIN?static_cast<SInt8>(-128):
+        static_cast<SInt8>(s.signalDbm<-127?-127:(s.signalDbm>0?0:s.signalDbm));
+    out.security=s.secure?1u:0u; // 0=open, 1=WPA2-PSK; no unsupported mode is implied.
+    out.tx_packets=s.txPackets;
+    out.rx_packets=s.rxPackets;
+    out.tx_bytes=s.txBytes;
+    out.rx_bytes=s.rxBytes;
+    return kIOReturnSuccess;
 }
 
 IOReturn Ath10kPCIDevice::nativeScanStatusAction(OSObject *owner,void *input,void *,void *,void *)
