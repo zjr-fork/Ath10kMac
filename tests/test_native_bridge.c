@@ -7,6 +7,8 @@ int main(void) {
     if (sizeof(header) != 20u) return 1;
     if (sizeof(Ath10kNativeLinkSnapshot) != 88u) return 2;
     if (sizeof(Ath10kNativeScanStatus) != 16u) return 7;
+    if (sizeof(Ath10kNativeLinkSnapshot) != 88u) return 10;
+    if (ATH10K_NATIVE_LINK_IDLE != 0 || ATH10K_NATIVE_LINK_CONNECTED != 3) return 11;
     if (sizeof(Ath10kNativeBSSRecord) != 597u) return 3;
     if (offsetof(Ath10kNativeBSSRecord, capabilities) != 560u) return 8;
     if (offsetof(Ath10kNativeBSSRecord, rates) != 565u) return 9;
