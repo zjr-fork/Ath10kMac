@@ -46,6 +46,10 @@ public:
     void free() override;
     IOReturn setPowerState(unsigned long state, IOService *device) override;
     void systemWillShutdown(IOOptionBits specifier) override;
+    // Native Apple80211/WCL frontend entry points. Calls are copied and serialized
+    // onto the WMI work loop; no caller-owned buffer survives the call.
+    IOReturn queueNativeScanRequest(const Ath10kNativeScanRequest *);
+    IOReturn abortNativeScanRequest(UInt32 generation);
 
 private:
     const Ath10kPayload::Profile &payload() const {
@@ -72,6 +76,7 @@ private:
     static IOReturn powerNotification(void *,void *,UInt32,IOService *,void *,vm_size_t);
     void fillControlInfo(AthControl::Response &);
     static IOReturn controlAction(OSObject *,void *,void *,void *,void *);
+    static IOReturn nativeScanAction(OSObject *,void *,void *,void *,void *);
     bool configureInterface(IONetworkInterface *) override;
     const OSString *newModelString() const override;
     bool createWorkLoop() override;
@@ -176,6 +181,8 @@ private:
     Ath10kDMABuffer _httTxBuffer{},_httRxIndex{},_httRxRing{},_httRxPool{};
     const char *serviceWMIScan(UInt64 nowMs);
     Ath10k::WMIScanState _wmiScan{};
+    Ath10kNativeScanRequest _nativeScanRequest{};
+    bool _nativeScanRequestValid=false;
     Ath10k::WMIBSSCache _wmiBSS{};
     Ath10k::WMIEchoState _wmiEcho{};
     bool prepareWMIRuntime();
