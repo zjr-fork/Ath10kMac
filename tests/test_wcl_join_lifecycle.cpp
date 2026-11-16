@@ -41,7 +41,7 @@ int main() {
     if (!state.begin(102)) return 28;
     if (!state.markAssociation(102, false)) return 29;
     if (state.markAssociation(102, true)) return 30;
-    if (state.markFirstBeacon(102, true, true)) return 31;
+    if (!state.markFirstBeacon(102, true, true)) return 31;
     if (state.finish(102, Ath10kWCLJoinLifecycle::kTimedOut)) return 32;
     if (state.readyToComplete(102)) return 33;
     if (!state.finish(102, Ath10kWCLJoinLifecycle::kFailed)) return 34;
