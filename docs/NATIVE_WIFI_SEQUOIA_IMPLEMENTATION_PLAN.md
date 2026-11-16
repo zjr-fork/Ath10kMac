@@ -32,22 +32,15 @@ The first bridge revision should expose only these operations. The scan request/
 | tx-submit / rx-drain | Explicit ownership transfer and completion IDs; no implicit packet lifetime |
 | get-link-snapshot | SSID/BSSID/channel/RSSI/state/counters from a synchronized snapshot |
 
-All functions return a stable status enum. All output structures include `size` and `version`; unknown versions and undersized structures fail closed. Key bytes are write-only inputs: never copied into diagnostics, IORegistry, or logs.
+All functions return a stable status enum. Message-style structures carry explicit size/version fields; fixed-layout scan-status and BSS records are pinned by ABI version and compile-time size/offset assertions. Key bytes are write-only inputs: never copied into diagnostics, IORegistry, or logs.
 
 ## 3. Scan transaction rules
 
 The current `WMIScanState` already tracks generation, scan ID, START_SCAN TX consumption, HTC credit return, STARTED/terminal events, cancellation and STOP_SCAN ownership. Reuse that transport and transaction machinery; do not create a second WMI ring or bypass the runtime work-loop gate.
 
-The current `buildWMIScan()` is an internal all-SSID/broadcast-BSSID scan with a fixed regulatory channel list. It is not yet a system-request adapter. The native coordinator must:
+The native core coordinator is now implemented alongside the original internal `buildWMIScan()` path. It validates and copies bounded SSID/BSSID/channel/type/dwell requests, assigns a generation and WMI scan ID, applies the regulatory/channel policy, builds the WMI-TLV command, and exposes generation-checked BSS snapshots plus pending/success/failure/cancel/timeout status. Cancellation and host timeout use the existing STOP_SCAN path and retain DMA/HTC ownership until descriptor consumption and credit return.
 
-1. Validate and copy the caller's SSID filters, BSSID filter, channel list, active/passive mode and dwell limits into bounded storage.
-2. Assign a fresh generation and WMI scan ID; reject concurrent scans with a busy status.
-3. Build the WMI command from the validated request, while intersecting requested channels with the existing regulatory policy.
-4. Publish results only from a stable BSS-cache snapshot; preserve binary SSIDs and IE bytes without assuming UTF-8 or NUL termination.
-5. Abort by setting cancellation for that generation. Submit STOP_SCAN only after START_SCAN descriptor consumption and HTC credit return; do not recycle the shared WMI TX buffer before ownership is returned.
-6. Complete only after correlated firmware terminal event and transport ownership completion. Ignore stale events from previous generations.
-
-Do not expose the current boot-time fast scan as a successful system scan. Internal bring-up scanning and user-requested scans need separate request origins and completion notifications.
+The remaining scan work is on the Apple frontend: decode the exact Sequoia WCL request, queue the native request asynchronously, translate each BSS snapshot into the Sequoia scan-result ABI, and emit the correct completion/abort notifications. Keep internal bring-up scans separate; never report them as a user-requested scan.
 
 ## 4. Association and security
 
@@ -114,5 +107,5 @@ Release acceptance requires a real macOS Wi-Fi interface (not an Ethernet servic
 - Added `ath10kNativeDecodeAppleScanRequest()` and `docs/APPLE_WCL_SCAN_REQUEST_MAPPING.md` to independently decode the pinned Sequoia WCL scan request into the bridge ABI, including bounded channel filtering and passive/active mode mapping.
 - Extended `WMIBSS` to retain up to 512 bytes of validated raw IEs (falling back to the RSN IE if the complete IE stream is larger). Added `copyNativeBSSRecord()` to export generation-checked BSS snapshots under the WMI work-loop gate, including SSID, BSSID, channel/frequency, rates, capabilities, beacon interval and an explicitly marked SNR-derived RSSI estimate. Added `getNativeScanStatus()` with pending/success/failure/cancel/timeout states; added `copyNativeLinkSnapshot()` with stable idle/scanning/associating/connected/disconnecting/failed states, SSID/BSSID/channel, honest unknown-RSSI sentinel, security mode and packet/byte counters; the host deadline now requests STOP_SCAN and waits for descriptor consumption plus HTC credit return before declaring timeout completion.
 - Added `tests/test_native_scan_builder.cpp` and a Makefile syntax-check target so the Sequoia kernel headers and WMI builder can be checked together on the target Mac.
-- The ABI and scan coordinator are not yet called by an Apple80211/WCL frontend; scan results are not yet translated into macOS scan records or completion events. Association, keys, native RX/TX and the Skywalk frontend remain unimplemented. The bridge is still a same-kext integration contract, not a cross-kext transport. Do not load this header as a driver or infer native Wi-Fi support from its presence.
+- The ABI and scan coordinator are not yet called by an Apple80211/WCL frontend; scan results are not yet translated into macOS scan records or completion events. Association, key installation/removal, native link-control callbacks and the Skywalk interface remain unimplemented. The bridge is still a same-kext integration contract, not a cross-kext transport. Do not load this header as a driver or infer native Wi-Fi support from its presence.
 - The bridge layout uses packed little-endian fields. Callers must validate `version`, `size`, `operation`, `payload_bytes`, all counts and all per-field bounds before accessing payloads; copy packed multi-byte values to aligned locals before arithmetic.
