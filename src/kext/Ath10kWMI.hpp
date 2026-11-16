@@ -392,10 +392,15 @@ inline bool buildWMIStopScan(UInt8 *f,UInt32 capacity,UInt8 endpoint,UInt32 id,U
 // PASSIVE flag, so mixing active probes with DFS channels would be unsafe.
 inline bool buildWMIScanRequest(UInt8 *f, UInt32 capacity, UInt32 maxMessageSize,
                                 UInt8 endpoint, UInt32 id, bool connected,
-                                const RegulatoryPolicy *policy,
+                                const RegulatoryPolicy *policy,const UInt8 *sourceMAC,
                                 const Ath10kNativeScanRequest &request) {
     if (!f || !endpoint || endpoint==255 || (id&0xf000)!=0xa000 ||
         !ath10kNativeValidateScanRequest(&request)) return false;
+    if(request.scan_type==ATH10K_NATIVE_SCAN_ACTIVE) {
+        if(!sourceMAC || (sourceMAC[0]&1u))return false;
+        UInt8 nonzero=0;for(UInt32 i=0;i<6;++i)nonzero|=sourceMAC[i];
+        if(!nonzero)return false;
+    }
 
     UInt32 channels[ATH10K_NATIVE_MAX_SCAN_CHANNELS]{};
     UInt32 frequencies[ATH10K_NATIVE_MAX_SCAN_CHANNELS]{};
@@ -453,6 +458,7 @@ inline bool buildWMIScanRequest(UInt8 *f, UInt32 capacity, UInt32 maxMessageSize
     htcWriteLE32(f+88,request.ssid_count);
     htcWriteLE32(f+92,0);
     htcWriteLE32(f+96,active?3u:0u);
+    if(active)for(UInt32 i=0;i<6;++i)f[100+i]=sourceMAC[i];
 
     htcWriteLE16(f+116,static_cast<UInt16>(4*channelCount));
     htcWriteLE16(f+118,16);
