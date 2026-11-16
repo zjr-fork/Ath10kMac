@@ -65,8 +65,8 @@ def main() -> int:
                 declarations.append(f"virtual IOReturn {name}(void*) = 0;")
         audited_header = root / "AuditedController.h"
         audited_header.write_text(
-            "class IO80211Controller { public:\\n"
-            + "\\n".join(declarations) + "\\n};\\n",
+            "class IO80211Controller { public:\n"
+            + "\n".join(declarations) + "\n};\n",
             encoding="utf-8",
         )
         audited_command = [
@@ -79,8 +79,8 @@ def main() -> int:
             raise SystemExit("generator rejected the audited 12-method controller contract")
         declarations[-1] = "virtual void * unexpectedLogger() = 0;"
         audited_header.write_text(
-            "class IO80211Controller { public:\\n"
-            + "\\n".join(declarations) + "\\n};\\n",
+            "class IO80211Controller { public:\n"
+            + "\n".join(declarations) + "\n};\n",
             encoding="utf-8",
         )
         if subprocess.run(audited_command, capture_output=True).returncode == 0:
