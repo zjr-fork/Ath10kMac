@@ -43,3 +43,7 @@ The WCL adapter should call `queueNativeScanRequest()` after decoding and retain
 ## Result path still required
 
 The `WMIBSS` cache now retains bounded raw IE bytes in addition to BSSID, raw SSID, channel, SNR, capability bits, beacon interval, supported rates and parsed RSN data. `copyNativeBSSRecord()` exports one generation-checked record under the WMI work-loop gate; the frontend never receives a pointer into the mutable cache. The Apple `getSCAN_RESULT` iterator and completion notification still need implementation. RSSI is explicitly marked as an estimate using SNR minus the documented -95 dBm noise-floor convention; per-BSS noise is reported unavailable rather than invented.
+
+## Result and completion contract
+
+The request decoder and device queue are only the core half of the Apple scan path. The separate Sequoia result-getter and WCL event semantics, admission rules, completion/abort handling, conversion requirements, and unresolved SDK checks are documented in [`APPLE_SCAN_RESULT_COMPLETION_MAPPING.md`](APPLE_SCAN_RESULT_COMPLETION_MAPPING.md). In particular, do not treat WMI terminal status, Apple result-iterator exhaustion, and the WCL `ScanDone` notification as interchangeable events.
