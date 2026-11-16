@@ -115,3 +115,7 @@ check-apple-scan-result-abi: check-sdk
 .PHONY: check-sequoia-infra-abstractness
 check-sequoia-infra-abstractness: check-sdk
 	sh scripts/check-sequoia-infra-abstractness.sh
+
+.PHONY: check-sequoia-probe-generator
+check-sequoia-probe-generator:
+	python3 tests/test_generate_sequoia_infra_probe.py
