@@ -42,7 +42,7 @@ The inheritance chain in the pinned headers is:
 - `IO80211InfraInterface` adds no further pure virtuals in this snapshot.
 - The existing generator checks a generated subclass with 190 InfraProtocol stubs plus the inherited Skywalk stub using `std::is_abstract`.
 
-The 190 count is a pinned-header invariant, not a guarantee for every Sequoia 15.x point release. The user's local header root is the compile authority. Methods outside the initial STA scope (AP, AWDL, P2P, ranging, NAN, offloads, telemetry, vendor features) must return the documented unsupported status or a safe no-op only where the contract permits it. Never report success for an operation not performed.
+The 190 count is a pinned-header invariant, not a guarantee for every Sequoia 15.x point release. The probe now checks the complete ordered list of all 190 method names, not just the count; the controller probe likewise checks the ordered 12-method list. This catches same-count reordering, which matters because virtual slot order is ABI. The local header root remains the compile authority, and any point-release difference must be audited rather than silently accepted. Methods outside the initial STA scope (AP, AWDL, P2P, ranging, NAN, offloads, telemetry, vendor features) must return the documented unsupported status or a safe no-op only where the contract permits it. Never report success for an operation not performed.
 
 ## Initial station path
 
@@ -64,3 +64,14 @@ The header contains WCL entry points including `setWCL_SCAN_REQ`, `setWCL_SCAN_A
 A temporary compile-only generator and shell target for the 12 controller pure virtuals have now been added alongside the existing InfraProtocol probe. Their fixture test is wired into the Makefile, and the full milestone invokes both compile probes. They still need to be run against the user's local Sequoia headers and current kernel SDK. If both generated subclasses are concrete, inspect local declarations for interface factory/registration, primary-interface access, WCL message lifetime and teardown callbacks. Only after that should the production controller/interface pair and lifecycle state machine be designed.
 
 Passing compile probes is source-level compatibility evidence, not proof of runtime ABI or Wi-Fi operation.
+
+
+## Virtual-slot drift guard
+
+The temporary probe generators now enforce both count and ordered method identity for
+the pinned controller and infrastructure protocol contracts. A count-only check could
+miss a header revision that removes one pure virtual and adds another, or reorders
+methods while leaving the count unchanged. The ordered checks reject those cases before
+the generated concrete subclass is compiled. This is still not a complete vtable/layout
+proof: inherited non-pure virtuals, compiler ABI details, object size, and runtime
+framework expectations remain separate gates.
