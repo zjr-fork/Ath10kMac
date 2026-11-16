@@ -9,11 +9,17 @@ if [ -z "$HEADER_ROOT" ]; then
     exit 1
 fi
 HEADER_ROOT="$(cd "$HEADER_ROOT" && pwd)"
-INCLUDE_ROOT="${SEQUOIA_INCLUDE_ROOT:-$(cd "$HEADER_ROOT/../.." && pwd)}"
+INCLUDE_ROOT="${SEQUOIA_INCLUDE_ROOT:-$(cd "$HEADER_ROOT/.." && pwd)}"
 MKSDK="${MKSDK:-$ROOT/MacKernelSDK}"
 SDK="$(xcrun --sdk macosx --show-sdk-path)"
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT HUP INT TERM
+
+if [ ! -f "$INCLUDE_ROOT/apple80211_ioctl.h" ]; then
+    echo "ERROR: missing $INCLUDE_ROOT/apple80211_ioctl.h" >&2
+    echo "Set SEQUOIA_INCLUDE_ROOT to the directory containing apple80211_ioctl.h" >&2
+    exit 1
+fi
 
 for header in IO80211InfraProtocol.h IO80211SkywalkInterface.h; do
     if [ ! -f "$HEADER_ROOT/$header" ]; then
