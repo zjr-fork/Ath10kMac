@@ -52,6 +52,7 @@ public:
     IOReturn abortNativeScanRequest(UInt32 generation);
     IOReturn abortCurrentNativeScanRequest();
     IOReturn copyNativeBSSRecord(UInt32 generation,UInt32 index,Ath10kNativeBSSRecord *,UInt32 *countOut);
+    IOReturn getNativeScanStatus(UInt32 generation,Ath10kNativeScanStatus *);
 
 private:
     const Ath10kPayload::Profile &payload() const {
@@ -80,6 +81,7 @@ private:
     static IOReturn controlAction(OSObject *,void *,void *,void *,void *);
     static IOReturn nativeScanAction(OSObject *,void *,void *,void *,void *);
     static IOReturn nativeBSSAction(OSObject *,void *,void *,void *,void *);
+    static IOReturn nativeScanStatusAction(OSObject *,void *,void *,void *,void *);
     bool configureInterface(IONetworkInterface *) override;
     const OSString *newModelString() const override;
     bool createWorkLoop() override;
