@@ -113,6 +113,15 @@ The WCL join lifecycle accepts the Beacon event before or after the association
 completion event, but requires the caller to prove both selected-BSSID match
 and a post-begin Beacon serial.
 
+The PCI service now exposes `copyNativeJoinSnapshot()` as a value-only,
+work-loop-serialized observation API. Its fixed 32-byte structure carries the
+core link stage, association status, actual-Beacon serial, security generation,
+disconnect stage, security/authorization flags, selected BSSID and channel.
+It retains no frontend pointer and does not publish WCL messages. This gives a
+future controller/interface bridge a single coherent snapshot instead of
+reading mutable `ConnectionState` fields independently. The packed C/C++ ABI
+is asserted by both bridge test translation units.
+
 These are source-level observations of Ath10kMac's current core path, not a
 claim that the native WCL bridge already consumes them. The Join lifecycle
 tracker remains a host-tested value component and is not yet wired to the
