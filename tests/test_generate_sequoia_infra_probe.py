@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import importlib.util
 import subprocess
 import sys
 import tempfile
@@ -54,6 +55,41 @@ def main() -> int:
             raise SystemExit("missing nicproxy_info_s pointer forward declaration")
         if "struct apple80211_chip_stats;" not in generated:
             raise SystemExit("missing opaque apple80211_chip_stats forward declaration")
+
+        if "sizeof(IO80211SkywalkInterface) == 0x118" not in generated:
+            raise SystemExit("infra probe omitted the pinned Skywalk base-size assertion")
+        if "sizeof(IO80211InfraProtocol) == 0x120" not in generated:
+            raise SystemExit("infra probe omitted the pinned InfraProtocol base-size assertion")
+
+        # Exercise the exact 190-slot audit: a same-count reorder must fail.
+        spec = importlib.util.spec_from_file_location("infra_probe_generator", script)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        audited = root / "AuditedInfraProtocol.h"
+        declarations = [
+            f" virtual IOReturn {name}(void*) = 0;"
+            for name in module.EXPECTED_INFRA_METHOD_ORDER
+        ]
+        audited.write_text(
+            "class IO80211InfraProtocol { public:\\n"
+            + "\\n".join(declarations) + "\\n};\\n",
+            encoding="utf-8",
+        )
+        audited_command = command.copy()
+        audited_command[audited_command.index("--infra-header") + 1] = str(audited)
+        audited_command[audited_command.index("--expected-infra") + 1] = "190"
+        good_audit = subprocess.run(audited_command, capture_output=True, text=True)
+        if good_audit.returncode:
+            raise SystemExit(f"generator rejected the audited 190-slot fixture:\\n{good_audit.stderr}")
+        declarations[0], declarations[1] = declarations[1], declarations[0]
+        audited.write_text(
+            "class IO80211InfraProtocol { public:\\n"
+            + "\\n".join(declarations) + "\\n};\\n",
+            encoding="utf-8",
+        )
+        bad_order = subprocess.run(audited_command, capture_output=True, text=True)
+        if bad_order.returncode == 0:
+            raise SystemExit("generator accepted reordered infra virtual slots")
 
         bad_command = command.copy()
         bad_command[bad_command.index("--expected-infra") + 1] = "3"
