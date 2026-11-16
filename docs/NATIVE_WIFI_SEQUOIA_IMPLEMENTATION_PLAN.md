@@ -1,0 +1,100 @@
+# Native Wi-Fi on macOS Sequoia: implementation contract
+
+Status: design baseline for the first native-Wi-Fi implementation. This document does not claim that a native controller or Skywalk data path has been implemented or tested.
+
+Target: Intel x86_64, macOS Sequoia 15.7+, QCA9377 PCI function `168c:0042`, Samsung subsystem `144d:4133`. macOS 26/Tahoe is out of scope. The Ethernet-style interface remains a diagnostic fallback only; it is not the product endpoint.
+
+## 1. Architectural boundary
+
+Use two independently versioned components:
+
+- **Ath10kCore** owns the PCI function, BAR/DMA, CE rings, firmware/board data, HTC, WMI, HTT, scan transactions, association state machine, RX/TX descriptors, and firmware key transactions.
+- **QcaAirportNative** owns the Sequoia `IO80211Controller` / `IO80211InfraProtocol` / WCL integration and the macOS-facing Skywalk interface. It must not duplicate PCI, firmware, or HTC/WMI ownership.
+
+The boundary is a narrow, versioned C ABI with fixed-width integers and caller-owned buffers. No IOKit C++ object, OSObject, mbuf, Skywalk object, STL type, exception, or compiler-dependent C++ layout crosses it. Every asynchronous request carries a monotonically increasing generation. Events from an older generation are discarded.
+
+Keep the current Ethernet frontend available during bring-up, but only one frontend may own the radio at a time. A lease/owner transition must quiesce queues and complete or cancel outstanding DMA transactions before changing owner.
+
+## 2. Core API surface
+
+The first bridge revision should expose only these operations:
+
+| Operation | Contract |
+|---|---|
+| acquire/release | Exclusive frontend lease; release drains or cancels outstanding work |
+| get-capabilities | Hardware, firmware, bands, channel/rate limits, supported ciphers and frame mode |
+| scan-start / scan-abort | Asynchronous request with SSID filters, channel list, scan type, generation and deadline |
+| scan-snapshot | Copy a bounded, stable BSS snapshot; no pointers into mutable cache |
+| associate / join-abort / disconnect | Asynchronous MLME operations keyed by generation and BSSID |
+| set-key / remove-key | Validate cipher, key type, key index, length and RSC; return only after firmware transaction and required echo barrier |
+| tx-submit / rx-drain | Explicit ownership transfer and completion IDs; no implicit packet lifetime |
+| get-link-snapshot | SSID/BSSID/channel/RSSI/state/counters from a synchronized snapshot |
+
+All functions return a stable status enum. All output structures include `size` and `version`; unknown versions and undersized structures fail closed. Key bytes are write-only inputs: never copied into diagnostics, IORegistry, or logs.
+
+## 3. Scan transaction rules
+
+The current `WMIScanState` already tracks generation, scan ID, START_SCAN TX consumption, HTC credit return, STARTED/terminal events, cancellation and STOP_SCAN ownership. Reuse that transport and transaction machinery; do not create a second WMI ring or bypass the runtime work-loop gate.
+
+The current `buildWMIScan()` is an internal all-SSID/broadcast-BSSID scan with a fixed regulatory channel list. It is not yet a system-request adapter. The native coordinator must:
+
+1. Validate and copy the caller's SSID filters, BSSID filter, channel list, active/passive mode and dwell limits into bounded storage.
+2. Assign a fresh generation and WMI scan ID; reject concurrent scans with a busy status.
+3. Build the WMI command from the validated request, while intersecting requested channels with the existing regulatory policy.
+4. Publish results only from a stable BSS-cache snapshot; preserve binary SSIDs and IE bytes without assuming UTF-8 or NUL termination.
+5. Abort by setting cancellation for that generation. Submit STOP_SCAN only after START_SCAN descriptor consumption and HTC credit return; do not recycle the shared WMI TX buffer before ownership is returned.
+6. Complete only after correlated firmware terminal event and transport ownership completion. Ignore stale events from previous generations.
+
+Do not expose the current boot-time fast scan as a successful system scan. Internal bring-up scanning and user-requested scans need separate request origins and completion notifications.
+
+## 4. Association and security
+
+The existing connection state machine is ordered: VDEV start → peer create → authentication → association → peer association/authorization → VDEV up → firmware echo barrier → connected. The native MLME adapter submits requests asynchronously and reports state changes; it must not block an Apple80211 callback waiting for the entire association.
+
+For WPA2, keep the controlled port closed until pairwise and group key installation has completed and the firmware echo barrier has succeeded. Key installation must validate cipher/key ID/key length/key type/RSC, and preserve the existing TKIP group-key MIC ordering. Re-key follows the same asynchronous transaction model. Never publish key material or PMK/PTK/GTK to the frontend.
+
+WPA3/SAE, enterprise EAP, AP mode, AWDL and DFS operation remain unsupported unless separately implemented and validated; do not advertise them in capabilities.
+
+## 5. Native 802.11 data path
+
+Do not assume that Ethernet-decapsulated HTT RX data can be passed directly to `IO80211`, or that the current Ethernet TX builder is a native 802.11 TX path.
+
+Before enabling the native frontend, establish from firmware capabilities and packet captures whether QCA9377 firmware is operating in native 802.11 mode or Ethernet decapsulation mode. Implement and test the required conversions explicitly:
+
+- RX: HTT descriptor/attention validation → MPDU/MSDU ownership resolution → native 802.11 header reconstruction (including QoS, address 4, HT control, crypto metadata and FCS policy as applicable) → reorder/defrag → Skywalk delivery.
+- TX: macOS 802.11 frame and metadata → validate frame/control/management/data subtype → HTT native TX descriptor and firmware crypto policy → DMA ownership → completion mapped to the originating packet.
+- Management/EAPOL frames must use a deliberate policy. Do not silently convert arbitrary raw 802.11 frames into Ethernet frames.
+
+The Skywalk adapter owns packet objects only for the documented lifetime. Core owns DMA buffers until the CE/HTT completion proves the device has consumed them. Completion, cancellation and teardown must be idempotent and generation-scoped.
+
+## 6. Sequoia ABI validation gates
+
+Compile only against the Sequoia 15.x headers from the pinned AirportItlwm reference, not Tahoe 26 headers. Before implementing the concrete subclass:
+
+- Enumerate every pure virtual method required by the exact `IO80211Controller`, `IO80211InfraProtocol`, and Skywalk interfaces in that SDK snapshot.
+- Verify vtable signatures, enum values, structure packing, callback ownership and WCL request lifetimes against the same version.
+- Keep all version-specific Apple ABI declarations in the frontend target; do not leak private Apple types into Ath10kCore.
+- Add compile-time size/offset assertions for every cross-component bridge structure.
+
+Do not infer that an interface is complete because a few familiar methods such as `getSSID`, `getCHANNEL` or `setCIPHER_KEY` compile.
+
+## 7. Implementation sequence and acceptance
+
+1. Pin and vendor/reference the exact Sequoia 15.x ABI header snapshot; record source revision and license.
+2. Add the versioned bridge header and compile-time layout tests, with no hardware behavior changed.
+3. Extract core operations behind the bridge while retaining the current Ethernet frontend; regression-test existing QCA9377 behavior.
+4. Add native scan request/result/abort mapping and test generation, stale-event, timeout and cancellation cases.
+5. Add native MLME and key mapping; test open and WPA2 association, re-key and controlled-port failure paths.
+6. Confirm firmware frame mode, then implement native RX/TX and packet ownership tests.
+7. Add the Sequoia IO80211/Skywalk frontend and validate on the target machine.
+
+Release acceptance requires a real macOS Wi-Fi interface (not an Ethernet service), visible scan results in macOS Wi-Fi UI, association/disassociation, WPA2, DHCP, ARP, bidirectional IPv4/IPv6 traffic, suspend/wake recovery, and no DMA/packet ownership leaks. A successful compile alone is not acceptance.
+
+## 8. Current audit findings
+
+- The repository currently exposes `Ath10kPCIDevice : IOEthernetController`; its `outputPacket` and `deliverNetworkRX` are Ethernet-frame paths.
+- WMI START_SCAN/STOP_SCAN, correlated event parsing, BSS cache and CE3/HTC-credit ownership are already present and should be reused.
+- `buildWMIScan()` currently hardcodes broadcast BSSID, empty SSID filters, fixed channels and passive scan flags.
+- The current user-client `Scan` operation resets the internal BSS cache and increments a generation; it is not an Apple80211/WCL scan request implementation.
+- HTT RX currently normalizes/decapsulates data for Ethernet delivery; the existing Ethernet TX path calls `buildHTTPacket()` with Ethernet payload. Neither is proof of a native 802.11 data path.
+- Existing WPA2 key install, re-key, controlled-port gating and echo-barrier behavior should be preserved behind the bridge rather than rewritten in the frontend.
