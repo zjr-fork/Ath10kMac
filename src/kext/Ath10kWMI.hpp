@@ -444,7 +444,7 @@ inline bool buildWMIScanRequest(UInt8 *f, UInt32 capacity, UInt32 maxMessageSize
     const UInt32 common[15]={
         id,kWMIScanRequestId,0,1,0x1ff,
         activeDwell,passiveDwell,connected?150u:50u,500u,
-        0u,0u,0u,kWMIScanFirmwareMs,active?5u:0u,flags
+        0u,0u,0u,kWMIScanFirmwareMs,5u,flags
     };
     for(UInt32 i=0;i<15;++i)htcWriteLE32(f+16+4*i,common[i]);
 
@@ -452,7 +452,7 @@ inline bool buildWMIScanRequest(UInt8 *f, UInt32 capacity, UInt32 maxMessageSize
     htcWriteLE32(f+84,1);
     htcWriteLE32(f+88,request.ssid_count);
     htcWriteLE32(f+92,0);
-    htcWriteLE32(f+96,active?3u:0u);
+    htcWriteLE32(f+96,3u);
     // Keep the random-probe MAC address/mask zero unless random-address
     // scanning is explicitly implemented and negotiated by the frontend.
 
