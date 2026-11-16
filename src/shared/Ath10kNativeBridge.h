@@ -210,6 +210,23 @@ typedef struct ATH10K_NATIVE_PACKED Ath10kNativeLinkSnapshot {
     uint8_t ssid[ATH10K_NATIVE_MAX_SSID];
 } Ath10kNativeLinkSnapshot;
 
+/* Internal core-to-native-frontend observation. Counters are monotonic serials;
+ * consumers compare them with their per-operation baselines using RFC-1982
+ * half-range ordering. This is not a user-client request structure. */
+typedef struct ATH10K_NATIVE_PACKED Ath10kNativeJoinSnapshot {
+    uint32_t link_stage;
+    uint32_t association_status;
+    uint32_t station_beacon_serial;
+    uint32_t security_generation;
+    uint32_t disconnect_stage;
+    uint8_t secure;
+    uint8_t port_authorized;
+    uint8_t cancel_requested;
+    uint8_t reserved;
+    uint8_t bssid[6];
+    uint16_t channel;
+} Ath10kNativeJoinSnapshot;
+
 #pragma pack(pop)
 
 /* Validation helpers are pure and side-effect free. They never log or copy
@@ -348,6 +365,7 @@ static_assert(offsetof(Ath10kNativeBSSRecord, rates) == 565, "native ABI BSS rat
 static_assert(sizeof(Ath10kNativeKeyRequest) == 70, "native ABI key request size");
 static_assert(sizeof(Ath10kNativeCapabilities) == 164, "native capabilities size");
 static_assert(sizeof(Ath10kNativeLinkSnapshot) == 88, "native ABI link snapshot size");
+static_assert(sizeof(Ath10kNativeJoinSnapshot) == 32, "native ABI join snapshot size");
 #else
 _Static_assert(sizeof(Ath10kNativeMessageHeader) == 20, "native ABI header size");
 _Static_assert(sizeof(Ath10kNativeSSID) == 33, "native ABI SSID size");
@@ -361,6 +379,7 @@ _Static_assert(offsetof(Ath10kNativeBSSRecord, rates) == 565, "native ABI BSS ra
 _Static_assert(sizeof(Ath10kNativeKeyRequest) == 70, "native ABI key request size");
 _Static_assert(sizeof(Ath10kNativeCapabilities) == 164, "native capabilities size");
 _Static_assert(sizeof(Ath10kNativeLinkSnapshot) == 88, "native ABI link snapshot size");
+_Static_assert(sizeof(Ath10kNativeJoinSnapshot) == 32, "native ABI join snapshot size");
 #endif
 
 #ifdef __cplusplus
