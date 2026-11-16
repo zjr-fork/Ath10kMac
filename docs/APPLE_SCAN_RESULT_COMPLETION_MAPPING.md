@@ -236,7 +236,7 @@ It must not retain a raw pointer into the mutable BSS cache across calls.
 `Ath10kNativeBSSRecord` and a caller-computed Apple channel-flags value. The
 adapter:
 
-- preserves the incoming `asr_ie_data` pointer without dereferencing it;
+- clears `asr_ie_data` without reading or dereferencing caller-owned storage;
 - clears the result object, restores that pointer, and forces `asr_ie_len = 0`;
 - fills BSSID, SSID, channel, RSSI/noise, capabilities, beacon interval and rates;
 - clamps rates to the actual fixed Apple array capacity (15 on the audited x86_64
