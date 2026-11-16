@@ -5,6 +5,7 @@ static_assert(ATH10K_NATIVE_MAX_SCAN_SSIDS == 16u, "bounded SSID filters");
 static_assert(ATH10K_NATIVE_MAX_SCAN_CHANNELS == 64u, "bounded channel list");
 static_assert(ATH10K_NATIVE_MAX_BSS_IE_BYTES == 512u, "bounded information elements");
 static_assert(sizeof(Ath10kNativeBSSRecord) == 597u, "BSS snapshot layout");
+static_assert(sizeof(Ath10kNativeScanStatus) == 16u, "scan status layout");
 
 static void writeLE32(uint8_t *p, uint32_t value) {
     p[0]=static_cast<uint8_t>(value);
