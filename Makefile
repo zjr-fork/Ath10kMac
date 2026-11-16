@@ -111,3 +111,7 @@ app:
 .PHONY: check-apple-scan-result-abi
 check-apple-scan-result-abi: check-sdk
 	sh scripts/check-apple-scan-result-abi.sh
+
+.PHONY: check-sequoia-infra-abstractness
+check-sequoia-infra-abstractness: check-sdk
+	sh scripts/check-sequoia-infra-abstractness.sh
