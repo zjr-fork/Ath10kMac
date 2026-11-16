@@ -148,6 +148,24 @@ typedef struct ATH10K_NATIVE_PACKED Ath10kNativeScanRequest {
     uint16_t channels[ATH10K_NATIVE_MAX_SCAN_CHANNELS];
 } Ath10kNativeScanRequest;
 
+typedef enum Ath10kNativeSecurityMode {
+    ATH10K_NATIVE_SECURITY_OPEN = 0,
+    ATH10K_NATIVE_SECURITY_WPA2_PSK = 1
+} Ath10kNativeSecurityMode;
+
+/* Pointer-free Join request. scan_generation binds the selected AP to the
+ * exact completed BSS snapshot from which the frontend chose it. Version 1
+ * deliberately accepts OPEN only; WPA2 remains rejected until credential
+ * ingress and the complete EAPOL/key/port-authorization path are verified. */
+typedef struct ATH10K_NATIVE_PACKED Ath10kNativeJoinRequest {
+    Ath10kNativeMessageHeader header;
+    uint32_t scan_generation;
+    uint8_t security_mode;
+    uint8_t ssid_length;
+    uint8_t bssid[6];
+    uint8_t ssid[ATH10K_NATIVE_MAX_SSID];
+} Ath10kNativeJoinRequest;
+
 typedef struct ATH10K_NATIVE_PACKED Ath10kNativeScanStatus {
     uint32_t generation;
     uint32_t state;
@@ -241,6 +259,18 @@ static inline int ath10kNativeHeaderValid(const Ath10kNativeMessageHeader *h,
         h->size == minimum_size &&
         h->size >= sizeof(Ath10kNativeMessageHeader) &&
         h->payload_bytes == (uint32_t)(h->size - sizeof(Ath10kNativeMessageHeader));
+}
+
+static inline int ath10kNativeValidateJoinRequest(const Ath10kNativeJoinRequest *r) {
+    if (!r || !ath10kNativeHeaderValid(&r->header, ATH10K_NATIVE_OP_ASSOCIATE,
+                                       (uint16_t)sizeof(*r))) return 0;
+    if (r->header.flags || !r->scan_generation ||
+        r->security_mode != ATH10K_NATIVE_SECURITY_OPEN ||
+        !r->ssid_length || r->ssid_length > ATH10K_NATIVE_MAX_SSID) return 0;
+    uint8_t any = 0;
+    for (uint32_t i = 0; i < 6; ++i) any |= r->bssid[i];
+    if (!any || (r->bssid[0] & 1u)) return 0;
+    return 1;
 }
 
 static inline int ath10kNativeValidateScanRequest(const Ath10kNativeScanRequest *r) {
@@ -355,6 +385,10 @@ static inline int ath10kNativeValidateKeyRequest(const Ath10kNativeKeyRequest *r
 #if defined(__cplusplus)
 static_assert(sizeof(Ath10kNativeMessageHeader) == 20, "native ABI header size");
 static_assert(sizeof(Ath10kNativeSSID) == 33, "native ABI SSID size");
+static_assert(sizeof(Ath10kNativeJoinRequest) == 64, "native Join request size");
+static_assert(offsetof(Ath10kNativeJoinRequest, scan_generation) == 20, "native Join scan generation offset");
+static_assert(offsetof(Ath10kNativeJoinRequest, bssid) == 26, "native Join BSSID offset");
+static_assert(offsetof(Ath10kNativeJoinRequest, ssid) == 32, "native Join SSID offset");
 static_assert(sizeof(Ath10kNativeScanStatus) == 16, "native scan status size");
 static_assert(offsetof(Ath10kNativeScanRequest, ssids) == 35, "native ABI scan SSID offset");
 static_assert(offsetof(Ath10kNativeScanRequest, channels) == 563, "native ABI scan channel offset");
@@ -369,6 +403,10 @@ static_assert(sizeof(Ath10kNativeJoinSnapshot) == 32, "native ABI join snapshot 
 #else
 _Static_assert(sizeof(Ath10kNativeMessageHeader) == 20, "native ABI header size");
 _Static_assert(sizeof(Ath10kNativeSSID) == 33, "native ABI SSID size");
+_Static_assert(sizeof(Ath10kNativeJoinRequest) == 64, "native Join request size");
+_Static_assert(offsetof(Ath10kNativeJoinRequest, scan_generation) == 20, "native Join scan generation offset");
+_Static_assert(offsetof(Ath10kNativeJoinRequest, bssid) == 26, "native Join BSSID offset");
+_Static_assert(offsetof(Ath10kNativeJoinRequest, ssid) == 32, "native Join SSID offset");
 _Static_assert(sizeof(Ath10kNativeScanStatus) == 16, "native scan status size");
 _Static_assert(offsetof(Ath10kNativeScanRequest, ssids) == 35, "native ABI scan SSID offset");
 _Static_assert(offsetof(Ath10kNativeScanRequest, channels) == 563, "native ABI scan channel offset");
