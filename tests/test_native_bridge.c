@@ -19,6 +19,11 @@ int main(void) {
     if (offsetof(Ath10kNativeBSSRecord, capabilities) != 560u) return 8;
     if (offsetof(Ath10kNativeBSSRecord, rates) != 565u) return 9;
 
+    if (!ath10kNativeGenerationIsNewer(1u,0u) ||
+        ath10kNativeGenerationIsNewer(1u,1u) ||
+        !ath10kNativeGenerationIsNewer(1u,0xffffffffu) ||
+        ath10kNativeGenerationIsNewer(0x80000000u,0u)) return 21;
+
     Ath10kNativeJoinRequest join = {0};
     join.header.version = ATH10K_NATIVE_ABI_VERSION;
     join.header.size = (uint16_t)sizeof(join);
