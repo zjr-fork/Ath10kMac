@@ -2611,12 +2611,14 @@ IOReturn Ath10kPCIDevice::queueNativeScanRequest(const Ath10kNativeScanRequest *
 
 IOReturn Ath10kPCIDevice::queueNativeJoinRequest(const Ath10kNativeJoinRequest *request)
 {
-    if(!request || !ath10kNativeValidateJoinRequest(request))return kIOReturnBadArgument;
+    if(!request)return kIOReturnBadArgument;
+    const Ath10kNativeJoinRequest requestCopy=*request;
+    if(!ath10kNativeValidateJoinRequest(&requestCopy))return kIOReturnBadArgument;
     if(!_wmiWorkLoop || isInactive())return kIOReturnNotReady;
     NativeJoinActionArgs args{};
     args.kind=NativeJoinActionKind::kQueue;
-    args.generation=request->header.generation;
-    args.request=*request;
+    args.generation=requestCopy.header.generation;
+    args.request=requestCopy;
     return _wmiWorkLoop->runAction(nativeJoinAction,this,&args,nullptr,nullptr);
 }
 
