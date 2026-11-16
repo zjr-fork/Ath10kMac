@@ -28,13 +28,13 @@ int main() {
     writeLE32(appleScan+0x40,1);
     writeLE32(appleScan+0x54,4);
     writeLE32(appleScan+0x58+4,36);
-    writeLE32(appleScan+0x58+8,0x8);
+    writeLE32(appleScan+0x58+8,0x10);
     writeLE32(appleScan+0x64+4,6);
-    writeLE32(appleScan+0x64+8,0x10);
+    writeLE32(appleScan+0x64+8,0x8);
     writeLE32(appleScan+0x70+4,149);
     writeLE32(appleScan+0x70+8,0x2000);
     writeLE32(appleScan+0x7c+4,36);
-    writeLE32(appleScan+0x7c+8,0x8);
+    writeLE32(appleScan+0x7c+8,0x10);
     Ath10kNativeScanRequest decoded{};
     if (!ath10kNativeDecodeAppleScanRequest(appleScan,sizeof(appleScan),7,&decoded)) return 10;
     if (decoded.header.generation!=7 || decoded.scan_type!=ATH10K_NATIVE_SCAN_ACTIVE) return 11;
