@@ -36,20 +36,21 @@ int main() {
 
     // A failed association is not silently converted to success.
     if (!state.begin(102)) return 25;
-    if (state.markAssociation(102, false)) return 26;
-    if (state.readyToComplete(102)) return 27;
-    if (!state.finish(102, Ath10kWCLJoinLifecycle::kFailed)) return 28;
+    if (!state.markAssociation(102, false)) return 26;
+    if (state.markAssociation(102, true)) return 27;
+    if (state.readyToComplete(102)) return 28;
+    if (!state.finish(102, Ath10kWCLJoinLifecycle::kFailed)) return 29;
 
     // Abort/timeout terminal states are exactly once and generation-scoped.
-    if (!state.begin(103)) return 29;
-    if (!state.finish(103, Ath10kWCLJoinLifecycle::kAborted)) return 30;
-    if (state.finish(103, Ath10kWCLJoinLifecycle::kTimedOut)) return 31;
-    if (!state.begin(104)) return 32;
-    if (!state.finish(104, Ath10kWCLJoinLifecycle::kTimedOut)) return 33;
+    if (!state.begin(103)) return 30;
+    if (!state.finish(103, Ath10kWCLJoinLifecycle::kAborted)) return 31;
+    if (state.finish(103, Ath10kWCLJoinLifecycle::kTimedOut)) return 32;
+    if (!state.begin(104)) return 33;
+    if (!state.finish(104, Ath10kWCLJoinLifecycle::kTimedOut)) return 34;
 
     state.reset();
     if (state.pending() || state.generation() ||
-        state.terminal() != Ath10kWCLJoinLifecycle::kNone) return 34;
-    if (state.accepts(104)) return 35;
+        state.terminal() != Ath10kWCLJoinLifecycle::kNone) return 35;
+    if (state.accepts(104)) return 36;
     return 0;
 }
