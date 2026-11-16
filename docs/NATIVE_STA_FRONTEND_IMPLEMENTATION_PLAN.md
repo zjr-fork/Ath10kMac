@@ -102,6 +102,14 @@ connection as an error. A stale generation or a competing non-native
 cancellation is rejected. This is a core-side primitive only; the WCL leave
 callback and its terminal completion message are not wired.
 
+The host-testable `Ath10kNativeLeaveObserver` now waits for the pointer-free
+Join snapshot to reach the final idle state (Disabled, no disconnect stage,
+unsecured and unauthorized) before allowing a future LeaveComplete publisher
+to finish. A closed controlled port or an in-progress disconnect is explicitly
+not completion. Stale generations and malformed snapshots are rejected. Its
+regression test is part of `scripts/test-native-bridge.sh`; the observer is
+not yet connected to a production interface or WCL message publisher.
+
 The separate WPA2 limitation remains unchanged. The core still lacks a verified
 macOS credential/key-material ingress that drives the complete EAPOL/4-way
 handshake and controlled-port path. The existing key installation primitives
