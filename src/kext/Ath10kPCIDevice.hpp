@@ -139,7 +139,7 @@ private:
     const char *submitNetworkPacket(const UInt8 *,UInt32,bool,UInt64);
     IOWorkLoop *_networkWorkLoop=nullptr;
     IONetworkInterface *_networkInterface=nullptr;
-    bool _networkEnabled=false,_networkLinkUp=false;
+    bool _networkEnabled=false,_networkLinkUp=false,_nativeCoreReady=false;
     Ath10k::ConnectionState _connection{};
     Ath10k::WMIEchoState _connectionEcho{};
     Ath10kDMABuffer _connectionCommand{},_packetBuffer{},_packetCommand{},_packetFragments{};
