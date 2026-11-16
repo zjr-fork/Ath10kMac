@@ -72,6 +72,7 @@ association completion while holding the interface gate.
 - Generation-scoped scan status and BSS cache.
 - Pointer-free scan cursor and WCL BeaconMetadata serializer.
 - Exactly-once WCL scan lifecycle tracker.
+- Pointer-free, generation-scoped WCL join lifecycle tracker. Association success, first beacon from the selected BSSID, and controlled-port authorization are independent gates; successful Join completion is permitted only after all three are observed for the same generation. Event order is not assumed, and duplicate/stale events are rejected.
 - Link snapshot and capabilities value structures.
 - Existing WPA2/CCMP key installation and controlled-port authorization.
 
@@ -79,6 +80,8 @@ association completion while holding the interface gate.
 
 - Exact local 15.7 typedef spellings and override signatures for all selected WCL
   callbacks, including abort and association aliases.
+- `apple80211AssocCandidates` is only forward-declared by the pinned Sequoia 15 interface header. Its concrete layout is not established by the currently audited public headers; no association decoder may be written from guessed offsets. A local 15.7 SDK declaration or another authoritative layout source is required.
+- The precise event source and synchronization point that constitutes controlled-port authorization must be mapped from the existing Ath10kMac key-install/authorization path before wiring the Join lifecycle tracker.
 - Whether the legacy IONetworkController::attachInterface registration path
   remains required with the exact local SDK and selected build target.
 - Ownership/copy semantics of controller/interface postMessage payloads and
