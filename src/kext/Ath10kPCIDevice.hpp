@@ -48,9 +48,10 @@ public:
     void systemWillShutdown(IOOptionBits specifier) override;
     // Native Apple80211/WCL frontend entry points. Calls are copied and serialized
     // onto the WMI work loop; no caller-owned buffer survives the call.
-    IOReturn queueNativeScanRequest(const Ath10kNativeScanRequest *);
+    IOReturn queueNativeScanRequest(const Ath10kNativeScanRequest *,UInt32 *generationOut=nullptr);
     IOReturn abortNativeScanRequest(UInt32 generation);
     IOReturn abortCurrentNativeScanRequest();
+    IOReturn copyNativeBSSRecord(UInt32 generation,UInt32 index,Ath10kNativeBSSRecord *,UInt32 *countOut);
 
 private:
     const Ath10kPayload::Profile &payload() const {
@@ -78,6 +79,7 @@ private:
     void fillControlInfo(AthControl::Response &);
     static IOReturn controlAction(OSObject *,void *,void *,void *,void *);
     static IOReturn nativeScanAction(OSObject *,void *,void *,void *,void *);
+    static IOReturn nativeBSSAction(OSObject *,void *,void *,void *,void *);
     bool configureInterface(IONetworkInterface *) override;
     const OSString *newModelString() const override;
     bool createWorkLoop() override;
