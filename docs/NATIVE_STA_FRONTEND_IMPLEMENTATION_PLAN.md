@@ -107,6 +107,11 @@ describe WPA2 as operational merely because key-installation code and
 authorization barriers exist. Native WPA2 requires a separate, audited
 credential-to-core integration and an end-to-end EAPOL/4-way-handshake test.
 
+As a consistency fix, `getNativeCapabilities()` no longer advertises the
+WPA2-PSK feature bit or CCMP/TKIP cipher flags until that native credential
+ingress exists and is verified end-to-end. HT/VHT and scan capabilities remain
+reported from runtime firmware capabilities.
+
 Required next core work, after the Sequoia 15.7 candidate/key ABI is verified:
 
 1. Define a pointer-free, bounded native Join value request. It must represent
