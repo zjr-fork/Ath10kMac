@@ -43,11 +43,9 @@ def main() -> int:
         if generated.count("kIOReturnUnsupported") != 3:
             raise SystemExit("generated probe did not emit exactly three unsupported stubs")
 
-        bad = subprocess.run(
-            command[:-2] + ["3", "--expected-skywalk", "1"],
-            capture_output=True,
-            text=True,
-        )
+        bad_command = command.copy()
+        bad_command[bad_command.index("--expected-infra") + 1] = "3"
+        bad = subprocess.run(bad_command, capture_output=True, text=True)
         if bad.returncode == 0:
             raise SystemExit("generator accepted an incorrect pure-virtual count")
 
