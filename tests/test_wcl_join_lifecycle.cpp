@@ -29,7 +29,7 @@ int main() {
     // Old-generation callbacks and non-monotonic generations cannot affect a new join.
     if (!state.begin(101)) return 19;
     if (state.begin(100) || state.accepts(100)) return 20;
-    if (state.markFirstBeacon(100, true) || state.markPortAuthorized(100)) return 21;
+    if (state.markFirstBeacon(100, true, true) || state.markPortAuthorized(100)) return 21;
     if (state.readyToComplete(101)) return 22;
     if (!state.markAssociation(101, true)) return 23;
     if (!state.markFirstBeacon(101, true, true)) return 24;
