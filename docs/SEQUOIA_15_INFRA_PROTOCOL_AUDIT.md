@@ -59,3 +59,15 @@ Before the first native interface load, compile against the actual macOS 15.7 SD
 - Class sizes and critical vtable method order match the pinned ABI.
 - Interface registration, BSD ifnet creation, Skywalk packet ownership, and teardown are verified.
 - A native Wi-Fi interface is registered; an Ethernet-only service is not acceptance.
+
+## Repeatable local audit
+
+A small checker is now available at `scripts/audit-sequoia-io80211-abi.py`. It does not vendor or fetch any third-party headers. Point it at a local directory containing the four pinned macOS15 header files:
+
+```sh
+python3 scripts/audit-sequoia-io80211-abi.py --header-root /path/to/macOS15
+```
+
+The default mode fails closed if any of the four declaration counts differ from the pinned 15.2 inventory. Use `--no-pinned-counts` only to inspect a different SDK/header revision; that mode reports counts and must not be treated as proof of 15.2 ABI compatibility.
+
+This is a declaration-count guard, not a C++ compiler or vtable-layout proof. The eventual concrete classes must still be compiled against the target SDK/header set, and class abstractness must be checked by the compiler. The checker intentionally does not generate method bodies or copy declarations from the GPL-2.0 reference tree.
