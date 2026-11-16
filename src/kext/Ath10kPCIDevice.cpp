@@ -2692,7 +2692,12 @@ IOReturn Ath10kPCIDevice::nativeScanAction(OSObject *owner,void *input,void *abo
     if(!args.request)return kIOReturnBadArgument;
     const auto &request=*args.request;
     if(!ath10kNativeValidateScanRequest(&request))return kIOReturnBadArgument;
-    if(!self->_wmiLive.active || !self->_runtimeActive || self->_wmiEvents.rfKill)
+    if(!self->_wmiLive.active || !self->_runtimeActive || self->_wmiEvents.rfKill ||
+       !self->_wmiScanChannels.completed || !self->_wmiScanChannels.txConsumed ||
+       !self->_wmiInit.ready || !self->_wmi.rxOwned || !self->_runtimeCE1Armed ||
+       self->_dmaQuarantine || !self->_htcWMIControl.connected ||
+       self->_htcWMIControl.uplinkPipe!=3 || !self->_wmiTxBuffer.allocated() ||
+       !_ceSrcRings[3].allocated())
         return kIOReturnNotReady;
     UInt32 allowedChannels=0,acceptedChannels[ATH10K_NATIVE_MAX_SCAN_CHANNELS]{};
     auto acceptChannel=[&](UInt32 channel)->bool {
