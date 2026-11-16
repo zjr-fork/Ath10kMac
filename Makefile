@@ -100,8 +100,9 @@ clean:
 	rm -rf $(BUILD_DIR)
 
 .PHONY: check-native-scan-builder
-check-native-scan-builder: check-sdk
+check-native-scan-builder: check-sdk src/kext/Ath10kPayload.hpp
 	$(CXX) $(CXXFLAGS) -fsyntax-only tests/test_native_scan_builder.cpp
+	$(CXX) $(CXXFLAGS) -fsyntax-only src/kext/Ath10kPCIDevice.cpp
 
 .PHONY: app
 app:
