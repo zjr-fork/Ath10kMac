@@ -405,7 +405,7 @@ inline bool buildWMIScanRequest(UInt8 *f, UInt32 capacity, UInt32 maxMessageSize
         UInt32 index=kWMIScanChannelCount;
         for(UInt32 i=0;i<kWMIScanChannelCount;++i)
             if(wmiScanChannel(i)==channel){index=i;break;}
-        if(index==kWMIScanChannelCount)return false;
+        if(index==kWMIScanChannelCount)return true;
         if(policy && !regulatoryScanChannel(*policy,channel))return true;
         if(active && !channelCanConnect(channel))return true;
         for(UInt32 i=0;i<channelCount;++i)if(channels[i]==channel)return true;
