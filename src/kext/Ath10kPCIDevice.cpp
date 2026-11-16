@@ -2651,8 +2651,10 @@ IOReturn Ath10kPCIDevice::nativeLinkSnapshotAction(OSObject *owner,void *input,v
         out.state=ATH10K_NATIVE_LINK_IDLE;
     else if(s.stage==LinkStage::Scan)
         out.state=ATH10K_NATIVE_LINK_SCANNING;
-    else if(s.stage==LinkStage::Connected)
+    else if(s.stage==LinkStage::Connected && (!s.secure || s.portAuthorized))
         out.state=ATH10K_NATIVE_LINK_CONNECTED;
+    else if(s.stage==LinkStage::Connected)
+        out.state=ATH10K_NATIVE_LINK_ASSOCIATING;
     else if(s.stage==LinkStage::Failed)
         out.state=ATH10K_NATIVE_LINK_FAILED;
     else
