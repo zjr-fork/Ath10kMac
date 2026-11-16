@@ -136,8 +136,12 @@ firmware HT/VHT capability snapshot and RF-chain count that `serviceConnection()
 uses on its Scan-to-Start transition. Both paths now decode only the
 WMI_INIT-defined contiguous masks `0x1` (one chain) and `0x3` (two chains);
 zero, sparse, or wider masks fail closed instead of being misclassified as two
-chains. Both selections therefore negotiate against the same validated runtime
-PHY inputs. Failed preflight leaves the station disconnected.
+chains. The QCA9377 PCI INIT path caps the effective hardware-chain count at one,
+so its INIT TX/RX masks and subsequent PDEV TX/RX mask commands must all remain
+`0x1` even if a firmware report advertises a larger maximum; host regression
+tests now check that parity. Both selections therefore negotiate against the
+same validated runtime PHY inputs. Failed preflight leaves the station
+disconnected.
 Join generations must be newer than the last accepted generation; abort is
 generation-checked and enters the existing cancellation/drain path.
 
