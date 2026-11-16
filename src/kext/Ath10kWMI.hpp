@@ -364,7 +364,7 @@ struct WMIChannelSample {
     bool rxFramesPresent=false;
 };
 struct WMIScanState {
-    UInt32 generation=0,id=0xa036;bool cancelRequested=false,stopSubmitted=false,stopConsumed=false;
+    UInt32 generation=0,id=0xa036;bool nativeRequest=false,cancelRequested=false,stopSubmitted=false,stopConsumed=false;
     UInt32 stopSlot=0,stopNext=0;
     bool attempted=false, submitted=false, txOwned=false, txConsumed=false;
     bool creditReturned=false, started=false, terminal=false, failed=false, completed=false;
