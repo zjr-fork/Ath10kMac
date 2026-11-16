@@ -32,12 +32,12 @@ python3 "$ROOT/scripts/generate-sequoia-infra-abstractness-probe.py" \
     --output "$TMP_DIR/QcaAirportInfraProtocolCompileProbe.hpp"
 
 if [ -n "${CXX:-}" ]; then
-    "$CXX" -std=c++17 -arch x86_64 -fsyntax-only -DKERNEL \
+    "$CXX" -std=c++17 -arch x86_64 -fsyntax-only -DKERNEL -DAIRPORT_WCL \
         -D__IO80211_TARGET=__MAC_15_2 \
         -I"$INCLUDE_ROOT" -I"$HEADER_ROOT" -I"$MKSDK/Headers" \
         -isysroot "$SDK" "$TMP_DIR/QcaAirportInfraProtocolCompileProbe.hpp"
 else
-    xcrun --sdk macosx clang++ -std=c++17 -arch x86_64 -fsyntax-only -DKERNEL \
+    xcrun --sdk macosx clang++ -std=c++17 -arch x86_64 -fsyntax-only -DKERNEL -DAIRPORT_WCL \
         -D__IO80211_TARGET=__MAC_15_2 \
         -I"$INCLUDE_ROOT" -I"$HEADER_ROOT" -I"$MKSDK/Headers" \
         -isysroot "$SDK" "$TMP_DIR/QcaAirportInfraProtocolCompileProbe.hpp"
