@@ -1,6 +1,7 @@
 #include "../src/kext/Ath10kWCLScanResult.hpp"
 
 int main() {
+    if (ATH10K_WCL_MESSAGE_SCAN_RESULT != 201 || ATH10K_WCL_MESSAGE_SCAN_DONE != 237) return 10;
     Ath10kNativeBSSRecord record{};
     record.channel = 36;
     record.ssid_length = 3;
