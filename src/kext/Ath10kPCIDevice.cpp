@@ -2587,7 +2587,7 @@ IOReturn Ath10kPCIDevice::nativeScanAction(OSObject *owner,void *input,void *abo
     if(!ath10kNativeValidateScanRequest(&request))return kIOReturnBadArgument;
     if(!self->_wmiLive.active || !self->_runtimeActive || self->_wmiEvents.rfKill)
         return kIOReturnNotReady;
-    UInt32 allowedChannels=0;
+    UInt32 allowedChannels=0,acceptedChannels[ATH10K_NATIVE_MAX_SCAN_CHANNELS]{};
     auto acceptChannel=[&](UInt32 channel)->bool {
         UInt32 index=Ath10k::kWMIScanChannelCount;
         for(UInt32 i=0;i<Ath10k::kWMIScanChannelCount;++i)
@@ -2595,10 +2595,9 @@ IOReturn Ath10kPCIDevice::nativeScanAction(OSObject *owner,void *input,void *abo
         if(index==Ath10k::kWMIScanChannelCount)return false;
         if(!Ath10k::regulatoryScanChannel(self->_regulatory,channel))return true;
         if(request.scan_type==ATH10K_NATIVE_SCAN_ACTIVE && !Ath10k::channelCanConnect(channel))return true;
-        for(UInt32 i=0;i<index;++i) {
-            (void)i;
-        }
-        ++allowedChannels;
+        for(UInt32 i=0;i<allowedChannels;++i)if(acceptedChannels[i]==channel)return true;
+        if(allowedChannels>=ATH10K_NATIVE_MAX_SCAN_CHANNELS)return false;
+        acceptedChannels[allowedChannels++]=channel;
         return true;
     };
     if(request.channel_count) {
