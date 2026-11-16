@@ -3,6 +3,7 @@
 #include "Ath10kBSS.hpp"
 #include "Ath10kConnection.hpp"
 #include "Ath10kFirmwareStats.hpp"
+#include "../shared/Ath10kNativeBridge.h"
 
 namespace Ath10k {
 // QCA6174 firmware container selects WMI TLV (op=4).
@@ -385,6 +386,104 @@ inline bool buildWMIStopScan(UInt8 *f,UInt32 capacity,UInt8 endpoint,UInt32 id,U
     // wmi_stop_scan_cmd order is requestor, scan_id, req_type, vdev_id.
     return true;
 }
+// Serialize a host-originated scan request into the WMI-TLV START_SCAN
+// envelope. The caller must already own the WMI TX buffer and CE3 submission gate.
+// Explicit active scans omit DFS channels: this firmware command has one global
+// PASSIVE flag, so mixing active probes with DFS channels would be unsafe.
+inline bool buildWMIScanRequest(UInt8 *f, UInt32 capacity, UInt32 maxMessageSize,
+                                UInt8 endpoint, UInt32 id, bool connected,
+                                const RegulatoryPolicy *policy,
+                                const Ath10kNativeScanRequest &request) {
+    if (!f || !endpoint || endpoint==255 || (id&0xf000)!=0xa000 ||
+        !ath10kNativeValidateScanRequest(&request)) return false;
+
+    UInt32 channels[ATH10K_NATIVE_MAX_SCAN_CHANNELS]{};
+    UInt32 frequencies[ATH10K_NATIVE_MAX_SCAN_CHANNELS]{};
+    UInt32 channelCount=0;
+    const bool active=request.scan_type==ATH10K_NATIVE_SCAN_ACTIVE;
+    auto appendChannel=[&](UInt32 channel)->bool {
+        UInt32 index=kWMIScanChannelCount;
+        for(UInt32 i=0;i<kWMIScanChannelCount;++i)
+            if(wmiScanChannel(i)==channel){index=i;break;}
+        if(index==kWMIScanChannelCount)return false;
+        if(policy && !regulatoryScanChannel(*policy,channel))return true;
+        if(active && !channelCanConnect(channel))return true;
+        for(UInt32 i=0;i<channelCount;++i)if(channels[i]==channel)return true;
+        if(channelCount>=ATH10K_NATIVE_MAX_SCAN_CHANNELS)return false;
+        channels[channelCount]=channel;
+        frequencies[channelCount]=wmiScanFrequency(index);
+        ++channelCount;
+        return true;
+    };
+
+    if(request.channel_count) {
+        for(UInt32 i=0;i<request.channel_count;++i)
+            if(!appendChannel(request.channels[i]))return false;
+    } else {
+        for(UInt32 i=0;i<kWMIScanChannelCount;++i)
+            if(!appendChannel(wmiScanChannel(i)))return false;
+    }
+    if(!channelCount)return false;
+
+    const UInt32 frameBytes=140+4*channelCount+36*request.ssid_count;
+    const UInt32 wmiMessageBytes=frameBytes-8;
+    if(frameBytes>capacity || wmiMessageBytes>maxMessageSize || wmiMessageBytes>0xffffu ||
+       channelCount>0xffffu || request.ssid_count*36u>0xffffu)return false;
+
+    htcZero(f,frameBytes);
+    f[0]=endpoint;f[1]=1;f[5]=9;
+    htcWriteLE16(f+2,static_cast<UInt16>(wmiMessageBytes));
+    htcWriteLE32(f+8,0x3001);
+    htcWriteLE16(f+12,100);htcWriteLE16(f+14,77);
+
+    const UInt32 activeDwell=request.active_dwell_ms?request.active_dwell_ms:50u;
+    const UInt32 passiveDwell=request.passive_dwell_ms?request.passive_dwell_ms:kWMIScanDwellMs;
+    // WMI-TLV inverts WMI_SCAN_FILTER_PROBE_REQ relative to the common WMI flags.
+    // 0x30 is CHAN_STAT_EVENT plus the inverted filter bit; 0x31 adds PASSIVE.
+    const UInt32 flags=0x30u|(active?0u:0x1u);
+    const UInt32 common[15]={
+        id,kWMIScanRequestId,0,1,0x1ff,
+        activeDwell,passiveDwell,connected?150u:50u,500u,
+        0u,0u,0u,kWMIScanFirmwareMs,active?5u:0u,flags
+    };
+    for(UInt32 i=0;i<15;++i)htcWriteLE32(f+16+4*i,common[i]);
+
+    htcWriteLE32(f+80,channelCount);
+    htcWriteLE32(f+84,1);
+    htcWriteLE32(f+88,request.ssid_count);
+    htcWriteLE32(f+92,0);
+    htcWriteLE32(f+96,active?3u:0u);
+
+    htcWriteLE16(f+116,static_cast<UInt16>(4*channelCount));
+    htcWriteLE16(f+118,16);
+    for(UInt32 i=0;i<channelCount;++i)htcWriteLE32(f+120+4*i,frequencies[i]);
+
+    UInt32 cursor=120+4*channelCount;
+    htcWriteLE16(f+cursor,static_cast<UInt16>(36*request.ssid_count));
+    htcWriteLE16(f+cursor+2,19);
+    cursor+=4;
+    for(UInt32 i=0;i<request.ssid_count;++i) {
+        UInt8 *ssid=f+cursor+36*i;
+        htcWriteLE32(ssid,request.ssids[i].length);
+        for(UInt32 j=0;j<request.ssids[i].length;++j)
+            ssid[4+j]=request.ssids[i].bytes[j];
+    }
+    cursor+=36*request.ssid_count;
+
+    htcWriteLE16(f+cursor,8);
+    htcWriteLE16(f+cursor+2,19);
+    if(request.has_bssid) {
+        for(UInt32 i=0;i<6;++i)f[cursor+4+i]=request.bssid[i];
+    } else {
+        for(UInt32 i=0;i<6;++i)f[cursor+4+i]=0xff;
+    }
+    cursor+=12;
+
+    htcWriteLE16(f+cursor,0);
+    htcWriteLE16(f+cursor+2,17);
+    return cursor+4==frameBytes;
+}
+
 inline bool buildWMIScan(UInt8 *f, UInt32 capacity, UInt8 endpoint,UInt32 id=kWMIScanId,bool connected=false,const RegulatoryPolicy *policy=nullptr,bool fast=false) {
     const UInt32 count=regulatoryScanCountForMode(policy,fast),frameBytes=140+4*count;
     if (!f || !count || capacity<frameBytes || !endpoint || endpoint==255) return false;
