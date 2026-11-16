@@ -35,7 +35,7 @@ The pinned `laobamac/itlwm` revision's root `LICENSE` is GNU GPL version 2 (June
 3. Implement the concrete infrastructure interface against the 15.2 `IO80211InfraProtocol` contract. The reference subclass has many intentionally unsupported methods; unsupported features must return `kIOReturnUnsupported`, not fabricated success.
 4. Implement `setMacAddress(ether_addr&)` required by the Sequoia Skywalk base class.
 5. Preserve the WCL-specific scan, association, leave, join-abort, key and link-state entry points, but forward them to the versioned Ath10k bridge. They must not call PCI/WMI directly.
-6. Keep the 15.2 header snapshot pinned as a reference dependency and record its license/provenance before copying any declarations into this repository.
+6. Keep the 15.2 header snapshot as an external reference only; do not copy or vendor its GPL-2.0-only header/source files into this GPL-3.0 repository.
 
 ## Validation gates
 
