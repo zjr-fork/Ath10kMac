@@ -28,14 +28,14 @@ public:
 
     Ath10kWCLJoinLifecycle()
         : _generation(0), _pending(false), _associationReported(false),
-          _associationSucceeded(false), _firstBeacon(false), _portAuthorized(false), _terminal(kNone) {}
+          _associationSucceeded(false), _firstBeacon(false),
+          _portAuthorized(false), _terminal(kNone) {}
 
     bool begin(uint32_t generation) {
         if (!generation || _pending || generation == _generation)
             return false;
         _generation = generation;
         _pending = true;
-        _associationReported = false;
         _associationReported = false;
         _associationSucceeded = false;
         _firstBeacon = false;
@@ -89,6 +89,7 @@ public:
     void reset() {
         _generation = 0;
         _pending = false;
+        _associationReported = false;
         _associationSucceeded = false;
         _firstBeacon = false;
         _portAuthorized = false;
