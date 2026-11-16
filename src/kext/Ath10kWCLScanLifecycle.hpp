@@ -20,8 +20,13 @@ public:
     Ath10kWCLScanLifecycle()
         : _generation(0), _pending(false), _terminal(kNone) {}
 
+    static bool isNewerGeneration(uint32_t candidate, uint32_t current) {
+        return candidate && static_cast<int32_t>(candidate - current) > 0;
+    }
+
     bool begin(uint32_t generation) {
-        if (!generation || _pending)
+        if (!generation || _pending ||
+            (_generation && !isNewerGeneration(generation, _generation)))
             return false;
         _generation = generation;
         _pending = true;
@@ -44,7 +49,8 @@ public:
     }
 
     void reset() {
-        _generation = 0;
+        // Preserve the generation high-water mark so delayed callbacks from
+        // a stopped scan cannot be confused with a reused generation.
         _pending = false;
         _terminal = kNone;
     }
