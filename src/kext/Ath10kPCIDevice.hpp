@@ -54,6 +54,7 @@ public:
     IOReturn copyNativeBSSRecord(UInt32 generation,UInt32 index,Ath10kNativeBSSRecord *,UInt32 *countOut);
     IOReturn getNativeScanStatus(UInt32 generation,Ath10kNativeScanStatus *);
     IOReturn copyNativeLinkSnapshot(Ath10kNativeLinkSnapshot *);
+    IOReturn copyNativeJoinSnapshot(Ath10kNativeJoinSnapshot *);
     IOReturn getNativeCapabilities(Ath10kNativeCapabilities *);
 
 private:
@@ -85,6 +86,7 @@ private:
     static IOReturn nativeBSSAction(OSObject *,void *,void *,void *,void *);
     static IOReturn nativeScanStatusAction(OSObject *,void *,void *,void *,void *);
     static IOReturn nativeLinkSnapshotAction(OSObject *,void *,void *,void *,void *);
+    static IOReturn nativeJoinSnapshotAction(OSObject *,void *,void *,void *,void *);
     static IOReturn nativeCapabilitiesAction(OSObject *,void *,void *,void *,void *);
     bool configureInterface(IONetworkInterface *) override;
     const OSString *newModelString() const override;
