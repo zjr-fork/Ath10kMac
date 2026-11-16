@@ -137,6 +137,23 @@ buffer capacity is independently known. It must set the actual copied IE length.
 The bridge's 512-byte IE bound is an intentional current limitation, not a reason
 to read beyond the record or write beyond the caller's buffer.
 
+
+### Local compile probe
+
+A repository-owned compile-only probe now checks the x86_64 offsets, pointer field,
+15-rate capacity, and expected size against the locally installed
+`MacKernelSDK/Headers/IOKit/80211/apple80211_var.h`:
+
+```sh
+sh scripts/check-apple-scan-result-abi.sh
+# or
+make check-apple-scan-result-abi
+```
+
+The probe deliberately does not vendor Apple headers and has not been executed in
+this development environment. A passing result on the user's macOS 15.7 toolchain
+is a prerequisite to implementing the result converter.
+
 ## Implementation sequence
 
 1. Obtain the local macOS 15 SDK headers and verify the exact
