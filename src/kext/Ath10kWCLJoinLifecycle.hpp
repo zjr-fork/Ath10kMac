@@ -13,10 +13,10 @@
  *   2. the first beacon from the selected BSSID was received;
  *   3. the controlled port/key authorization barrier completed.
  *
- * Authorization may arrive before or after the beacon. The beacon latch is
- * intentionally accepted only after association succeeds, so a beacon seen
- * during the preceding scan cannot satisfy this join. The caller publishes
- * success only when readyToComplete() becomes true.
+ * Association, beacon and authorization observations may arrive in any order.
+ * The caller must compare the BSSID and prove the beacon is newer than the
+ * per-join beacon-serial baseline before passing it to markFirstBeacon().
+ * The caller publishes success only when readyToComplete() becomes true.
  */
 class Ath10kWCLJoinLifecycle {
 public:
@@ -65,10 +65,11 @@ public:
         return true;
     }
 
-    // The caller must compare the received BSSID with the selected peer.
-    bool markFirstBeacon(uint32_t generation, bool matchesSelectedBSSID) {
-        if (!matchesSelectedBSSID || !accepts(generation) ||
-            !_associationSucceeded || _firstBeacon)
+    // The caller must validate the selected BSSID and a post-begin serial.
+    bool markFirstBeacon(uint32_t generation, bool matchesSelectedBSSID,
+                         bool observedAfterJoinStart) {
+        if (!matchesSelectedBSSID || !observedAfterJoinStart ||
+            !accepts(generation) || _firstBeacon)
             return false;
         _firstBeacon = true;
         return true;
