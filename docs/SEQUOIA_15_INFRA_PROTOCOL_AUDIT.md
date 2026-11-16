@@ -71,3 +71,27 @@ python3 scripts/audit-sequoia-io80211-abi.py --header-root /path/to/macOS15
 The default mode fails closed if any of the four declaration counts differ from the pinned 15.2 inventory. Use `--no-pinned-counts` only to inspect a different SDK/header revision; that mode reports counts and must not be treated as proof of 15.2 ABI compatibility.
 
 This is a declaration-count guard, not a C++ compiler or vtable-layout proof. The eventual concrete classes must still be compiled against the target SDK/header set, and class abstractness must be checked by the compiler. The checker intentionally does not generate method bodies or copy declarations from the GPL-2.0 reference tree.
+
+## Generated abstractness compile probe
+
+The protocol has 190 pure virtual methods and inherits one additional pure virtual
+`setMacAddress(ether_addr&)` from `IO80211SkywalkInterface`. A local-only generator
+now reads the caller-supplied headers and emits unsupported-return stubs into a
+temporary compile probe. It does not copy or vendor those headers and does not add
+the generated class to the driver:
+
+```sh
+SEQUOIA_HEADER_ROOT=/path/to/include/Airport/macOS15 \\
+  sh scripts/check-sequoia-infra-abstractness.sh
+# or
+SEQUOIA_HEADER_ROOT=/path/to/include/Airport/macOS15 \\
+  make check-sequoia-infra-abstractness
+```
+
+The probe is deliberately strict: it expects 190 protocol methods, one inherited
+Skywalk pure virtual, and `IOReturn` return types. It verifies C++ override matching
+and non-abstractness only; it does not prove object size, vtable slot order, runtime
+registration, or correct behavior. The generated stubs all return
+`kIOReturnUnsupported` and are not a production implementation. A passing compile
+on the actual macOS 15.7 headers is required before writing the real interface.
+
