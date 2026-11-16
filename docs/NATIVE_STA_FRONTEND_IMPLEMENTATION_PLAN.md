@@ -72,6 +72,7 @@ association completion while holding the interface gate.
 - Generation-scoped scan status and BSS cache.
 - Pointer-free scan cursor and WCL BeaconMetadata serializer.
 - Exactly-once WCL scan lifecycle tracker.
+  Both scan and join lifecycle guards now enforce serial-number generation ordering, reject reused/older/half-range-ambiguous generations, and preserve their generation high-water mark across interface reset.
 - Pointer-free, generation-scoped WCL join lifecycle tracker. Association success, first beacon from the selected BSSID, and controlled-port authorization are independent gates; successful Join completion is permitted only after all three are observed for the same generation. Event order is not assumed, and duplicate/stale events are rejected.
 - Link snapshot and capabilities value structures.
 - Existing WPA2/CCMP key installation and controlled-port authorization.
