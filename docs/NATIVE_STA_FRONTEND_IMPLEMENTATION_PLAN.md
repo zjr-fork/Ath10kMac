@@ -120,6 +120,35 @@ Required next core work, after the Sequoia 15.7 candidate/key ABI is verified:
    operation until the native path is independently tested; never let a native
    request silently fall through to `selectOpenBSS()`.
 
+### Sequoia reference lead for association candidates (not yet approved for decoding)
+
+A source-only inspection of the pinned itlwm commit found that its shared WCL
+decoder treats the opaque candidate buffer as follows: candidate count at
+`+0x214`, candidate records beginning at `+0x21c`, 18 bytes per record, and
+the first record's BSSID at record offset `+6` (absolute `+0x222`). It also
+reads SSID length/data at `+0x1c/+0x20`, lower/upper auth at `+0x10/+0x14`,
+key length/cipher/index/data at `+0x44/+0x48/+0x4e/+0x50`, and RSN length/data
+at `+0xd4/+0xd6`. Its call site supplies a decode bound of `0x2cc`.
+
+These are useful reverse-engineering leads from the pinned Sequoia-compatible
+reference, not declarations in Apple's public headers and not a validated
+15.7 allocation contract. In particular, the decoder's count check permits
+10 entries but its own `0x2cc` length bound plus 18-byte records only fits 9;
+the mismatch must not be silently copied. Before enabling a production
+decoder, establish the exact 15.7 buffer extent, maximum candidate count,
+record stride, alignment, and whether the key/RSN fields are always present.
+Add a local SDK compile/layout probe and bounded synthetic tests for truncation,
+overflow, malformed BSSID, unsupported auth, and inconsistent candidate
+counts. Never dereference based only on a count field until the accessible
+extent is independently established.
+
+The candidate key is not automatically a WPA2 passphrase: the reference
+decoder's supported personal path expects a 32-byte key material field with
+specific cipher identifiers. Ath10kMac must separately establish which
+credential form macOS supplies on 15.7 and map only the supported WPA2-PSK
+case. Do not reinterpret a 32-byte PMK as a human passphrase or forward
+unsupported WEP/enterprise/SAE modes into the current core.
+
 The association-candidate structure remains a hard ABI gate. A separate
 macOS-26-oriented third-party note reports offsets for that structure, but
 those offsets are not evidence for Darwin 24 / Sequoia 15.7 and are expressly
