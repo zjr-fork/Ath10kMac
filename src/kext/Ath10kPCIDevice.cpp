@@ -2556,6 +2556,58 @@ const char *Ath10kPCIDevice::serviceWMIScanChannels(UInt64 nowMs)
     return nullptr;
 }
 
+IOReturn Ath10kPCIDevice::queueNativeScanRequest(const Ath10kNativeScanRequest *request)
+{
+    if(!request || !ath10kNativeValidateScanRequest(request))return kIOReturnBadArgument;
+    if(!_wmiWorkLoop || isInactive())return kIOReturnNotReady;
+    return _wmiWorkLoop->runAction(nativeScanAction,this,const_cast<Ath10kNativeScanRequest *>(request),nullptr,nullptr);
+}
+
+IOReturn Ath10kPCIDevice::abortNativeScanRequest(UInt32 generation)
+{
+    if(!generation || !_wmiWorkLoop || isInactive())return kIOReturnBadArgument;
+    return _wmiWorkLoop->runAction(nativeScanAction,this,&generation,reinterpret_cast<void *>(1),nullptr);
+}
+
+IOReturn Ath10kPCIDevice::nativeScanAction(OSObject *owner,void *input,void *abortFlag,void *,void *)
+{
+    auto *self=OSDynamicCast(Ath10kPCIDevice,owner);
+    if(!self || !input)return kIOReturnBadArgument;
+    if(abortFlag) {
+        const UInt32 generation=*static_cast<const UInt32 *>(input);
+        if(!self->_nativeScanRequestValid ||
+           self->_nativeScanRequest.header.generation!=generation)
+            return kIOReturnNotFound;
+        if(self->_wmiScan.completed)return kIOReturnSuccess;
+        self->_wmiScan.cancelRequested=true;
+        return kIOReturnSuccess;
+    }
+
+    const auto &request=*static_cast<const Ath10kNativeScanRequest *>(input);
+    if(!ath10kNativeValidateScanRequest(&request))return kIOReturnBadArgument;
+    if(!self->_wmiLive.active || !self->_runtimeActive || self->_wmiEvents.rfKill)
+        return kIOReturnNotReady;
+    auto &connection=self->_connection;
+    if(self->_nativeScanRequestValid || !self->_wmiScan.completed ||
+       connection.stats.step || connection.maintenance.step || connection.radio.step ||
+       connection.csa.phase!=Ath10k::ChannelSwitchPhase::Idle ||
+       connection.wmiOwned || connection.txOwned || self->_wmi.credits.outstanding ||
+       (connection.stage!=Ath10k::LinkStage::Disabled &&
+        (connection.stage!=Ath10k::LinkStage::Connected || !connection.portAuthorized)))
+        return kIOReturnBusy;
+
+    UInt32 generation=self->_wmiScan.generation+1;
+    if(!generation)generation=1;
+    Ath10k::resetInPlace(self->_wmiScan);
+    self->_wmiScan.generation=generation;
+    self->_wmiScan.id=0xa000|((0x36+generation)&0xfff);
+    Ath10k::resetInPlace(self->_wmiBSS);
+    self->_nativeScanRequest=request;
+    self->_nativeScanRequest.header.generation=generation;
+    self->_nativeScanRequestValid=true;
+    return kIOReturnSuccess;
+}
+
 const char *Ath10kPCIDevice::serviceWMIScan(UInt64 nowMs)
 {
     auto &state=_wmiScan;
