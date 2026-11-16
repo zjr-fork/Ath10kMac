@@ -58,12 +58,13 @@ int main() {
     if (!wrap.begin(0xffffffffu)) return 40;
     if (!wrap.finish(0xffffffffu, Ath10kWCLJoinLifecycle::kAborted)) return 41;
     if (!wrap.begin(1)) return 42;
+    if (wrap.begin(0x80000001u)) return 43;
 
     // Reset invalidates callbacks but preserves the generation high-water mark.
     state.reset();
     if (state.pending() || state.generation() != 104 ||
-        state.terminal() != Ath10kWCLJoinLifecycle::kNone) return 43;
-    if (state.accepts(104) || state.begin(104)) return 44;
-    if (!state.begin(105)) return 45;
+        state.terminal() != Ath10kWCLJoinLifecycle::kNone) return 44;
+    if (state.accepts(104) || state.begin(104)) return 45;
+    if (!state.begin(105)) return 46;
     return 0;
 }
