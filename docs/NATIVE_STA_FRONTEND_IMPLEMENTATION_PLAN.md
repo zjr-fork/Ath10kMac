@@ -133,8 +133,11 @@ the existing station state with the selected AP. The existing `selectOpenBSS()`
 routine is reused as the final regulatory/channel/rate validator; it cannot
 silently select another BSSID. Before preflight, Join admission seeds the same
 firmware HT/VHT capability snapshot and RF-chain count that `serviceConnection()`
-uses on its Scan-to-Start transition, so both selections negotiate against the
-same runtime PHY inputs. Failed preflight leaves the station disconnected.
+uses on its Scan-to-Start transition. Both paths now decode only the
+WMI_INIT-defined contiguous masks `0x1` (one chain) and `0x3` (two chains);
+zero, sparse, or wider masks fail closed instead of being misclassified as two
+chains. Both selections therefore negotiate against the same validated runtime
+PHY inputs. Failed preflight leaves the station disconnected.
 Join generations must be newer than the last accepted generation; abort is
 generation-checked and enters the existing cancellation/drain path.
 
