@@ -113,7 +113,7 @@ check-apple-scan-result-abi: check-sdk
 	sh scripts/check-apple-scan-result-abi.sh
 
 .PHONY: check-sequoia-infra-abstractness
-check-sequoia-infra-abstractness: check-sdk
+check-sequoia-infra-abstractness: check-sdk check-sequoia-probe-generator
 	sh scripts/check-sequoia-infra-abstractness.sh
 
 .PHONY: check-sequoia-probe-generator
