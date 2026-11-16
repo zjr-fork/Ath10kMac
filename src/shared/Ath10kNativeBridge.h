@@ -284,8 +284,10 @@ static inline int ath10kNativeOpenJoinMatchesBSS(const Ath10kNativeJoinRequest *
     if (!ath10kNativeValidateJoinRequest(request) || !bss) return 0;
     if (bss->flags & (ATH10K_NATIVE_BSS_PRIVACY|ATH10K_NATIVE_BSS_HAS_RSN|
                       ATH10K_NATIVE_BSS_HAS_WPA)) return 0;
-    if (!(bss->capabilities & 1u) || (bss->capabilities & 2u) ||
+    if (bss->ssid_length > ATH10K_NATIVE_MAX_SSID ||
+        !(bss->capabilities & 1u) || (bss->capabilities & 2u) ||
         !bss->beacon_interval || !bss->rate_count ||
+        bss->rate_count > sizeof(bss->rates) ||
         !(bss->flags & ATH10K_NATIVE_BSS_RATES_VALID)) return 0;
     for (uint32_t i=0;i<6;++i) if (bss->bssid[i]!=request->bssid[i]) return 0;
     if ((bss->flags & ATH10K_NATIVE_BSS_HIDDEN) && !bss->ssid_length) return 1;
