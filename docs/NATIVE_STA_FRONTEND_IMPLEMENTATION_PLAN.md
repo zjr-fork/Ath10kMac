@@ -136,7 +136,8 @@ Join generations must be newer than the last accepted generation; abort is
 generation-checked and enters the existing cancellation/drain path.
 
 The C and C++ host ABI tests cover the request size and offsets, open-only
-validation, malformed BSSID/SSID/scan-generation cases, and serial wrap/half-range
+validation, exact BSSID/SSID matching, hidden-SSID handling, protected/RSN and
+non-infrastructure rejection, malformed request fields, and serial wrap/half-range
 ordering. This is still not WCL callback wiring: the framework-facing interface
 must own its own generation and exactly-once completion observer, and the
 opaque Apple association-candidate buffer remains subject to the separate 15.7
