@@ -2689,8 +2689,12 @@ IOReturn Ath10kPCIDevice::nativeJoinAction(OSObject *owner,void *input,void *abo
     if(!ath10kNativeValidateJoinRequest(&request))return kIOReturnBadArgument;
     if(!ath10kNativeGenerationIsNewer(request.header.generation,self->_nativeJoinGeneration))
         return kIOReturnNotFound;
-    if(self->_wmiScan.generation!=request.scan_generation || !self->_wmiScan.completed ||
-       self->_wmiScan.failed || self->_wmiScan.timedOut || self->_wmiScan.cancelRequested)
+    if(!self->_nativeScanRequestValid ||
+       self->_nativeScanRequest.header.generation!=request.scan_generation ||
+       !self->_wmiScan.nativeRequest ||
+       self->_wmiScan.generation!=request.scan_generation || !self->_wmiScan.completed ||
+       self->_wmiScan.failed || self->_wmiScan.timedOut || self->_wmiScan.cancelRequested ||
+       self->_wmiScan.txOwned)
         return kIOReturnNotReady;
     if(connection.stage!=Ath10k::LinkStage::Disabled ||
        connection.disconnect!=Ath10k::DisconnectStage::None ||
