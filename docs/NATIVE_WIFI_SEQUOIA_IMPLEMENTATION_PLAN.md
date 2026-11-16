@@ -114,3 +114,14 @@ Release acceptance requires a real macOS Wi-Fi interface (not an Ethernet servic
 
 - Added `docs/SEQUOIA_15_INFRA_PROTOCOL_AUDIT.md` from the pinned macOS15-specific ABI declarations. The audited `IO80211InfraProtocol` declares 190 pure virtual methods; `IO80211Controller` separately declares 12 pure virtual methods; `IO80211SkywalkInterface` has one inherited pure virtual `setMacAddress(ether_addr&)`. `IO80211InfraInterface` contributes 56 virtual overrides. These counts are specific to the pinned `__MAC_15_2` header set and must not be inferred from the generic or macOS26 headers.
 - This confirms the frontend must be a separate `QcaAirportInfraInterface` child and that a native subclass cannot be safely added as a few selected Apple80211 callbacks. The next implementation unit is a generated/SDK-compiled method inventory and minimum station feature subset; unsupported methods must fail closed.
+
+
+## Local macOS 15.x build milestone
+
+Once the native scan bridge and WCL payload/lifecycle helpers are in place, run the consolidated local gate from the repository root on the target Mac:
+
+```sh
+make check-native-wifi-milestone SEQUOIA_HEADER_ROOT=/path/to/itlwm/include/Airport/macOS15
+```
+
+`SEQUOIA_HEADER_ROOT` must point to the directory containing the matching Sequoia `IO80211InfraProtocol.h` and `IO80211SkywalkInterface.h` headers from the pinned ABI reference. The target runs the host regression suite and native WMI scan builder syntax check, compiles the Apple scan-result ABI adapter against the installed SDK/MacKernelSDK, verifies the infra subclass can be made concrete against the supplied headers, then performs the full KEXT link and symbol check. It does not install or load the KEXT. A successful compile is an ABI/build milestone only; hardware scan, association, WPA2, DHCP, and traffic validation remain separate.
