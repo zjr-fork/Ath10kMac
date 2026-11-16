@@ -9,15 +9,16 @@ if [ -z "$HEADER_ROOT" ]; then
     exit 1
 fi
 HEADER_ROOT="$(cd "$HEADER_ROOT" && pwd)"
-INCLUDE_ROOT="${SEQUOIA_INCLUDE_ROOT:-$(cd "$HEADER_ROOT/.." && pwd)}"
+INCLUDE_ROOT="${SEQUOIA_INCLUDE_ROOT:-$(cd "$HEADER_ROOT/../.." && pwd)}"
+AIRPORT_INCLUDE_ROOT="${SEQUOIA_AIRPORT_INCLUDE_ROOT:-$INCLUDE_ROOT/Airport}"
 MKSDK="${MKSDK:-$ROOT/MacKernelSDK}"
 SDK="$(xcrun --sdk macosx --show-sdk-path)"
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT HUP INT TERM
 
-if [ ! -f "$INCLUDE_ROOT/apple80211_ioctl.h" ]; then
-    echo "ERROR: missing $INCLUDE_ROOT/apple80211_ioctl.h" >&2
-    echo "Set SEQUOIA_INCLUDE_ROOT to the directory containing apple80211_ioctl.h" >&2
+if [ ! -f "$AIRPORT_INCLUDE_ROOT/apple80211_ioctl.h" ]; then
+    echo "ERROR: missing $AIRPORT_INCLUDE_ROOT/apple80211_ioctl.h" >&2
+    echo "Set SEQUOIA_AIRPORT_INCLUDE_ROOT to the directory containing apple80211_ioctl.h" >&2
     exit 1
 fi
 
@@ -40,7 +41,7 @@ python3 "$ROOT/scripts/generate-sequoia-infra-abstractness-probe.py" \
 if [ -n "${CXX:-}" ]; then
     "$CXX" -std=c++17 -arch x86_64 -fsyntax-only -DKERNEL -DAIRPORT_WCL \
         -D__IO80211_TARGET=__MAC_15_2 \
-        -I"$INCLUDE_ROOT" -I"$HEADER_ROOT" -I"$MKSDK/Headers" \
+        -I"$INCLUDE_ROOT" -I"$AIRPORT_INCLUDE_ROOT" -I"$HEADER_ROOT" -I"$MKSDK/Headers" \
         -isysroot "$SDK" "$TMP_DIR/QcaAirportInfraProtocolCompileProbe.hpp"
 else
     xcrun --sdk macosx clang++ -std=c++17 -arch x86_64 -fsyntax-only -DKERNEL -DAIRPORT_WCL \
