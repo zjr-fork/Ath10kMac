@@ -55,17 +55,18 @@ For WPA2, keep the controlled port closed until pairwise and group key installat
 
 WPA3/SAE, enterprise EAP, AP mode, AWDL and DFS operation remain unsupported unless separately implemented and validated; do not advertise them in capabilities.
 
-## 5. Native 802.11 data path
+## 5. Native IO80211 packet contract and data path
 
-Do not assume that Ethernet-decapsulated HTT RX data can be passed directly to `IO80211`, or that the current Ethernet TX builder is a native 802.11 TX path.
+Do not assume that the Sequoia `IO80211Controller` / Skywalk interface accepts raw 802.11 MPDUs. The pinned AirportItlwm reference's `outputPacket(mbuf_t)` queues network mbufs through its BSD `if_snd` / `if_start` path, which is evidence of an Ethernet-to-net80211 stack boundary rather than a generic raw-MPDU socket. Ath10k firmware already owns MLME, encryption and 802.11 framing, so the QCA adapter may be able to preserve the existing Ethernet MSDU data path behind an `IO80211Controller`; this must be proven against the exact Sequoia callback contract, not guessed.
 
-Before enabling the native frontend, establish from firmware capabilities and packet captures whether QCA9377 firmware is operating in native 802.11 mode or Ethernet decapsulation mode. Implement and test the required conversions explicitly:
+Before wiring the frontend:
 
-- RX: HTT descriptor/attention validation → MPDU/MSDU ownership resolution → native 802.11 header reconstruction (including QoS, address 4, HT control, crypto metadata and FCS policy as applicable) → reorder/defrag → Skywalk delivery.
-- TX: macOS 802.11 frame and metadata → validate frame/control/management/data subtype → HTT native TX descriptor and firmware crypto policy → DMA ownership → completion mapped to the originating packet.
-- Management/EAPOL frames must use a deliberate policy. Do not silently convert arbitrary raw 802.11 frames into Ethernet frames.
+1. Identify the exact Sequoia input/output packet contract and packet ownership rules for `IO80211Controller` and `IO80211SkywalkInterface`.
+2. Confirm QCA9377 firmware RX decapsulation mode from HTT descriptors and packet captures. Current `deliverNetworkRX()` decodes firmware RX into Ethernet MSDUs; current `outputPacket()` accepts Ethernet MSDUs and submits them to HTT. These paths may be reusable if the IO80211 controller boundary is Ethernet.
+3. Only implement raw 802.11 RX/TX conversion if the selected Apple interface explicitly requires raw MPDUs. If required, cover QoS, address 4, HT control, crypto metadata, FCS policy, reorder/defrag and DMA ownership with separate tests.
+4. Keep management and EAPOL policy explicit; do not silently reinterpret arbitrary raw 802.11 frames as Ethernet.
 
-The Skywalk adapter owns packet objects only for the documented lifetime. Core owns DMA buffers until the CE/HTT completion proves the device has consumed them. Completion, cancellation and teardown must be idempotent and generation-scoped.
+The adapter owns packet objects only for the documented interface lifetime. Core owns DMA buffers until CE/HTT completion proves device consumption. Completion, cancellation and teardown must be idempotent and generation-scoped.
 
 ## 6. Sequoia ABI validation gates
 
@@ -92,7 +93,7 @@ Release acceptance requires a real macOS Wi-Fi interface (not an Ethernet servic
 
 ## 8. Current audit findings
 
-- The repository currently exposes `Ath10kPCIDevice : IOEthernetController`; its `outputPacket` and `deliverNetworkRX` are Ethernet-frame paths.
+- The repository currently exposes `Ath10kPCIDevice : IOEthernetController`; its `outputPacket` and `deliverNetworkRX` are Ethernet-MSDU paths. The AirportItlwm reference uses an `IO80211Controller` with a BSD `if_snd` / `if_start` path, so the correct Sequoia packet boundary must be confirmed before deciding whether to reuse these MSDU paths or add raw 802.11 conversion.
 - WMI START_SCAN/STOP_SCAN, correlated event parsing, BSS cache and CE3/HTC-credit ownership are already present and should be reused.
 - `buildWMIScan()` currently hardcodes broadcast BSSID, empty SSID filters, fixed channels and passive scan flags.
 - The current user-client `Scan` operation resets the internal BSS cache and increments a generation; it is not an Apple80211/WCL scan request implementation.
