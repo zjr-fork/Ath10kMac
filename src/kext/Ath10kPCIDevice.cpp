@@ -977,6 +977,7 @@ IOReturn Ath10kPCIDevice::controlWMIRuntime(OSObject *owner, void *reason,
     if(!self->prepareRuntimePower()){self->endWMIRuntime("runtime-wake-lock-allocation");return kIOReturnError;}
     const char *irqError=self->startRuntimeWorkerIRQ();
     if(irqError){self->endWMIRuntime(irqError);return kIOReturnError;}
+    self->_nativeCoreReady=true;
     self->_wmiLive.status=self->_runtimeIRQArmed?"active-msi-worker":"active-polling";
     self->publishWMIRuntimeProperties();
     IOLog("Ath10kMac: WMI RUNTIME ACTIVE mode=%s watchdog=10ms CE1+CE2 budget=32 HTT budget=64\n",self->_wmiLive.status);
@@ -1070,6 +1071,7 @@ void Ath10kPCIDevice::wmiTimerFired(OSObject *owner,IOTimerEventSource *timer)
 void Ath10kPCIDevice::endWMIRuntime(const char *reason)
 {
     // Called only under the work-loop gate, including stop/PM/shutdown paths.
+    _nativeCoreReady=false;
     if (!_wmiLive.active) return;
     IOLog("Ath10kMac: RUNTIME STOP context reason=%s stage=%u security=%u disconnect=%u peers=%u cmd=0x%x wmi-owned=%u credit-pending=%u tx-owned=%u first-error=%s\n",
         reason,static_cast<UInt32>(_connection.stage),_connection.securityPhase,static_cast<UInt32>(_connection.disconnect),
@@ -2653,7 +2655,7 @@ IOReturn Ath10kPCIDevice::nativeCapabilitiesAction(OSObject *owner,void *input,v
     if(!self || !input)return kIOReturnBadArgument;
     auto &args=*static_cast<NativeCapabilitiesArgs *>(input);
     if(!args.capabilities)return kIOReturnBadArgument;
-    if(!self->_wmiInit.ready || !self->_wmiLive.active || !self->_runtimeActive ||
+    if(!self->_nativeCoreReady || !self->_wmiInit.ready || !self->_wmiLive.active || !self->_runtimeActive ||
        !self->_wmiScanChannels.completed)return kIOReturnNotReady;
 
     auto &out=*args.capabilities;
@@ -2689,6 +2691,7 @@ IOReturn Ath10kPCIDevice::nativeLinkSnapshotAction(OSObject *owner,void *input,v
 {
     auto *self=OSDynamicCast(Ath10kPCIDevice,owner);
     if(!self || !input)return kIOReturnBadArgument;
+    if(!self->_nativeCoreReady)return kIOReturnNotReady;
     auto &args=*static_cast<NativeLinkSnapshotArgs *>(input);
     if(!args.snapshot)return kIOReturnBadArgument;
 
@@ -2738,6 +2741,7 @@ IOReturn Ath10kPCIDevice::nativeJoinSnapshotAction(OSObject *owner,void *input,v
 {
     auto *self=OSDynamicCast(Ath10kPCIDevice,owner);
     if(!self || !input)return kIOReturnBadArgument;
+    if(!self->_nativeCoreReady)return kIOReturnNotReady;
     auto &args=*static_cast<NativeJoinSnapshotArgs *>(input);
     if(!args.snapshot)return kIOReturnBadArgument;
 
@@ -2762,6 +2766,7 @@ IOReturn Ath10kPCIDevice::nativeScanStatusAction(OSObject *owner,void *input,voi
 {
     auto *self=OSDynamicCast(Ath10kPCIDevice,owner);
     if(!self || !input)return kIOReturnBadArgument;
+    if(!self->_nativeCoreReady)return kIOReturnNotReady;
     auto &args=*static_cast<NativeScanStatusArgs *>(input);
     if(!args.status)return kIOReturnBadArgument;
     if(self->_wmiScan.generation!=args.generation)return kIOReturnNotFound;
@@ -2779,6 +2784,7 @@ IOReturn Ath10kPCIDevice::nativeBSSAction(OSObject *owner,void *input,void *,voi
 {
     auto *self=OSDynamicCast(Ath10kPCIDevice,owner);
     if(!self || !input)return kIOReturnBadArgument;
+    if(!self->_nativeCoreReady)return kIOReturnNotReady;
     auto &args=*static_cast<NativeBSSCopyArgs *>(input);
     if(!args.record || !args.countOut)return kIOReturnBadArgument;
     if(!self->_wmiScan.completed)return kIOReturnNotReady;
@@ -2823,6 +2829,7 @@ IOReturn Ath10kPCIDevice::nativeScanAction(OSObject *owner,void *input,void *abo
 {
     auto *self=OSDynamicCast(Ath10kPCIDevice,owner);
     if(!self || (!input && !abortFlag))return kIOReturnBadArgument;
+    if(!self->_nativeCoreReady)return kIOReturnNotReady;
     if(abortFlag) {
         const UInt32 generation=input?*static_cast<const UInt32 *>(input):
             self->_nativeScanRequest.header.generation;
