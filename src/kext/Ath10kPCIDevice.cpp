@@ -2831,10 +2831,13 @@ const char *Ath10kPCIDevice::serviceWMIScan(UInt64 nowMs)
             state.stopSubmitted=true;return nullptr;
         }
     }
-    if(state.stopSubmitted && !state.stopConsumed){
-        if(!_regs.read32(Ath10k::ceBaseAddress(3)+Ath10k::kCECurrentSrcRead,read))return "scan-stop-index";
-        state.stopConsumed=read==state.stopNext;
-        if(state.stopConsumed && !_wmi.credits.outstanding)state.txOwned=false;
+    if(state.stopSubmitted) {
+        if(!state.stopConsumed) {
+            if(!_regs.read32(Ath10k::ceBaseAddress(3)+Ath10k::kCECurrentSrcRead,read))return "scan-stop-index";
+            state.stopConsumed=read==state.stopNext;
+        }
+        state.creditReturned=_wmi.credits.outstanding==0;
+        if(state.stopConsumed && state.creditReturned)state.txOwned=false;
     }
     if (state.failed) {state.status="scan-firmware-failed";return state.status;}
     if (state.elapsedMs>=Ath10k::kWMIScanHostMs && !state.timedOut) {
