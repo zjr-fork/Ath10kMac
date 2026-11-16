@@ -57,8 +57,9 @@ public:
         return true;
     }
 
-    bool markFirstBeacon(uint32_t generation) {
-        if (!accepts(generation) || _firstBeacon)
+    // The caller must compare the received BSSID with the selected peer.
+    bool markFirstBeacon(uint32_t generation, bool matchesSelectedBSSID) {
+        if (!matchesSelectedBSSID || !accepts(generation) || _firstBeacon)
             return false;
         _firstBeacon = true;
         return true;
