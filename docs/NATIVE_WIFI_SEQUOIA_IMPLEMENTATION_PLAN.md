@@ -57,14 +57,14 @@ WPA3/SAE, enterprise EAP, AP mode, AWDL and DFS operation remain unsupported unl
 
 ## 5. Native IO80211 packet contract and data path
 
-Do not assume that the Sequoia `IO80211Controller` / Skywalk interface accepts raw 802.11 MPDUs. The pinned AirportItlwm reference's `outputPacket(mbuf_t)` queues network mbufs through its BSD `if_snd` / `if_start` path, which is evidence of an Ethernet-to-net80211 stack boundary rather than a generic raw-MPDU socket. Ath10k firmware already owns MLME, encryption and 802.11 framing, so the QCA adapter may be able to preserve the existing Ethernet MSDU data path behind an `IO80211Controller`; this must be proven against the exact Sequoia callback contract, not guessed.
+The pinned Sequoia ABI declares `IO80211Controller : IOEthernetController`. Its packet methods therefore retain the Ethernet-controller contract. AirportItlwm's `outputPacket(mbuf_t)` queues network mbufs through its BSD `if_snd` / `if_start` path, also confirming that the native Wi-Fi controller boundary is not a generic raw-MPDU socket. Ath10k firmware already owns MLME, encryption and 802.11 framing, so the existing Ethernet-MSDU TX/RX path is the intended reusable data plane behind an `IO80211Controller`, subject to verifying the precise Skywalk input ownership and interface registration.
 
 Before wiring the frontend:
 
-1. Identify the exact Sequoia input/output packet contract and packet ownership rules for `IO80211Controller` and `IO80211SkywalkInterface`.
-2. Confirm QCA9377 firmware RX decapsulation mode from HTT descriptors and packet captures. Current `deliverNetworkRX()` decodes firmware RX into Ethernet MSDUs; current `outputPacket()` accepts Ethernet MSDUs and submits them to HTT. These paths may be reusable if the IO80211 controller boundary is Ethernet.
-3. Only implement raw 802.11 RX/TX conversion if the selected Apple interface explicitly requires raw MPDUs. If required, cover QoS, address 4, HT control, crypto metadata, FCS policy, reorder/defrag and DMA ownership with separate tests.
-4. Keep management and EAPOL policy explicit; do not silently reinterpret arbitrary raw 802.11 frames as Ethernet.
+1. Keep `Ath10kPCIDevice`'s Ethernet-MSDU TX/RX core behind the `IO80211Controller` service and replace only the macOS-facing interface registration and control plane.
+2. Confirm the exact `IO80211SkywalkInterface` input packet ownership and the `createInterface` / `configureInterface` lifecycle on Sequoia.
+3. Confirm QCA9377 firmware RX decapsulation mode from HTT descriptors and packet captures. Current `deliverNetworkRX()` decodes firmware RX into Ethernet MSDUs; current `outputPacket()` accepts Ethernet MSDUs and submits them to HTT.
+4. Do not implement raw 802.11 RX/TX conversion unless the selected Apple interface explicitly requires raw MPDUs. Keep management and EAPOL policy explicit.
 
 The adapter owns packet objects only for the documented interface lifetime. Core owns DMA buffers until CE/HTT completion proves device consumption. Completion, cancellation and teardown must be idempotent and generation-scoped.
 
