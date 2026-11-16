@@ -46,7 +46,7 @@ if [ -n "${CXX:-}" ]; then
 else
     xcrun --sdk macosx clang++ -std=c++17 -arch x86_64 -fsyntax-only -DKERNEL -DAIRPORT_WCL \
         -D__IO80211_TARGET=__MAC_15_2 \
-        -I"$INCLUDE_ROOT" -I"$HEADER_ROOT" -I"$MKSDK/Headers" \
+        -I"$INCLUDE_ROOT" -I"$AIRPORT_INCLUDE_ROOT" -I"$HEADER_ROOT" -I"$MKSDK/Headers" \
         -isysroot "$SDK" "$TMP_DIR/QcaAirportInfraProtocolCompileProbe.hpp"
 fi
 
