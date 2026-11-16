@@ -18,7 +18,10 @@ int main(void) {
     scan.channel_count = 1;
     scan.channels[0] = 1;
     if (!ath10kNativeValidateScanRequest(&scan)) return 4;
-    scan.channel_count = ATH10K_NATIVE_MAX_SCAN_CHANNELS + 1;
+    scan.header.size++;
     if (ath10kNativeValidateScanRequest(&scan)) return 5;
+    scan.header.size--;
+    scan.channel_count = ATH10K_NATIVE_MAX_SCAN_CHANNELS + 1;
+    if (ath10kNativeValidateScanRequest(&scan)) return 6;
     return 0;
 }
