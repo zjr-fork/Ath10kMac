@@ -80,9 +80,9 @@ int main() {
     Ath10kNativeJoinObserver wrap;
     base = baseline(0xffffffffu, 0xffffffffu);
     if (!wrap.begin(50, ap, true, base)) return 16;
-    snap = observation(ATH10K_JOIN_LINK_ASSOC, 1, 0xffffffffu, true, false, ap);
+    snap = observation(ATH10K_JOIN_LINK_ASSOC, 0, 0xffffffffu, true, false, ap);
     if (!wrap.observe(50, snap) || !wrap.beaconSeen()) return 17;
-    snap = observation(ATH10K_JOIN_LINK_CONNECTED, 1, 0, true, true, ap);
+    snap = observation(ATH10K_JOIN_LINK_CONNECTED, 0, 0, true, true, ap);
     if (!wrap.observe(50, snap) ||
         wrap.terminal() != Ath10kWCLJoinLifecycle::kSucceeded) return 18;
 
