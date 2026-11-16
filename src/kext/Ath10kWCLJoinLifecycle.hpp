@@ -38,6 +38,13 @@ public:
         return candidate && delta != 0 && delta < 0x80000000u;
     }
 
+    // Serial counters may legitimately wrap through zero; unlike operation
+    // generations, zero is not reserved for beacon/security observations.
+    static bool isNewerSerial(uint32_t candidate, uint32_t current) {
+        const uint32_t delta = candidate - current;
+        return delta != 0 && delta < 0x80000000u;
+    }
+
     bool begin(uint32_t generation) {
         if (!generation || _pending ||
             (_generation && !isNewerGeneration(generation, _generation)))
@@ -69,7 +76,7 @@ public:
     bool markFirstBeacon(uint32_t generation, bool matchesSelectedBSSID,
                          uint32_t observedSerial, uint32_t baselineSerial) {
         if (!matchesSelectedBSSID ||
-            !isNewerGeneration(observedSerial, baselineSerial) ||
+            !isNewerSerial(observedSerial, baselineSerial) ||
             !accepts(generation) || _firstBeacon)
             return false;
         _firstBeacon = true;
