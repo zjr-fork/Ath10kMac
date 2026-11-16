@@ -15,8 +15,9 @@ struct WMIBSS {
     UInt8 country[254]{},countryLength=0,wmmCount=0;
     bool countryPresent=false,erpPresent=false,wmmVendor=true;UInt8 erp=0;
     UInt32 rxChannel=0, snr=0, seen=0;
-    UInt16 capabilities=0,beaconInterval=0;
+    UInt16 capabilities=0,beaconInterval=0,ieLength=0;
     UInt8 rates[32]{},rateCount=0;bool ratesValid=true;
+    UInt8 ies[512]{};
 };
 // Country only restricts our configured domain. Extension triplets are not
 // channels; max power is signed dBm (negative values forbid this host's TX).
@@ -143,6 +144,14 @@ inline void recordWMIBSS(WMIBSSCache &cache, const UInt8 *f, UInt32 bytes,
     if(haveDS && haveHT && dsChannel!=htChannel){rejectBSS(cache,BSSChannelConflict);return;}
     candidate.advertisedChannel=haveHT?htChannel:(haveDS?dsChannel:static_cast<UInt8>(channel));
     if(!haveSSID){rejectBSS(cache,BSSSSID);return;}
+    const UInt32 rawIELength=bytes-36;
+    if(rawIELength<=sizeof(candidate.ies)) {
+        candidate.ieLength=static_cast<UInt16>(rawIELength);
+        for(UInt32 i=0;i<rawIELength;++i)candidate.ies[i]=f[36+i];
+    } else if(candidate.rsnPresent) {
+        candidate.ieLength=candidate.rsnLength;
+        for(UInt32 i=0;i<candidate.rsnLength;++i)candidate.ies[i]=candidate.rsn[i];
+    }
     UInt32 slot=cache.count;
     for(UInt32 n=0;n<cache.count;++n){
         bool same=true;for(UInt32 i=0;i<6;++i)if(cache.entries[n].bssid[i]!=candidate.bssid[i])same=false;
