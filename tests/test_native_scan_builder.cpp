@@ -26,5 +26,5 @@ void nativeScanBuilderCompileCheck() {
     request.ssids[0].bytes[2]='s';
     request.ssids[0].bytes[3]='t';
     (void)Ath10k::buildWMIScanRequest(frame,sizeof(frame),1016,1,0xa038,false,
-                                      &policy,sourceMAC,request);
+                                      &policy,request);
 }
