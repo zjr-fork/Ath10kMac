@@ -13,7 +13,16 @@ struct NativeScanQueueArgs {
     const Ath10kNativeScanRequest *request;
     UInt32 *generationOut;
 };
-struct NativeJoinQueueArgs { const Ath10kNativeJoinRequest *request; };
+enum class NativeJoinActionKind : UInt32 {
+    kQueue = 0,
+    kAbort = 1,
+    kLeave = 2
+};
+struct NativeJoinActionArgs {
+    NativeJoinActionKind kind;
+    UInt32 generation;
+    const Ath10kNativeJoinRequest *request;
+};
 struct NativeBSSCopyArgs {
     UInt32 generation,index;
     UInt32 *countOut;
@@ -2604,20 +2613,24 @@ IOReturn Ath10kPCIDevice::queueNativeJoinRequest(const Ath10kNativeJoinRequest *
 {
     if(!request || !ath10kNativeValidateJoinRequest(request))return kIOReturnBadArgument;
     if(!_wmiWorkLoop || isInactive())return kIOReturnNotReady;
-    NativeJoinQueueArgs args{request};
+    NativeJoinActionArgs args{NativeJoinActionKind::kQueue,request->header.generation,request};
     return _wmiWorkLoop->runAction(nativeJoinAction,this,&args,nullptr,nullptr);
 }
 
 IOReturn Ath10kPCIDevice::abortNativeJoinRequest(UInt32 generation)
 {
-    if(!generation || !_wmiWorkLoop || isInactive())return kIOReturnBadArgument;
-    return _wmiWorkLoop->runAction(nativeJoinAction,this,&generation,reinterpret_cast<void *>(1),nullptr);
+    if(!generation)return kIOReturnBadArgument;
+    if(!_wmiWorkLoop || isInactive())return kIOReturnNotReady;
+    NativeJoinActionArgs args{NativeJoinActionKind::kAbort,generation,nullptr};
+    return _wmiWorkLoop->runAction(nativeJoinAction,this,&args,nullptr,nullptr);
 }
 
 IOReturn Ath10kPCIDevice::requestNativeLeave(UInt32 generation)
 {
-    if(!generation || !_wmiWorkLoop || isInactive())return kIOReturnBadArgument;
-    return _wmiWorkLoop->runAction(nativeJoinAction,this,&generation,reinterpret_cast<void *>(2),nullptr);
+    if(!generation)return kIOReturnBadArgument;
+    if(!_wmiWorkLoop || isInactive())return kIOReturnNotReady;
+    NativeJoinActionArgs args{NativeJoinActionKind::kLeave,generation,nullptr};
+    return _wmiWorkLoop->runAction(nativeJoinAction,this,&args,nullptr,nullptr);
 }
 
 IOReturn Ath10kPCIDevice::abortNativeScanRequest(UInt32 generation)
@@ -2670,19 +2683,25 @@ IOReturn Ath10kPCIDevice::getNativeCapabilities(Ath10kNativeCapabilities *capabi
     return _wmiWorkLoop->runAction(nativeCapabilitiesAction,this,&args,nullptr,nullptr);
 }
 
-IOReturn Ath10kPCIDevice::nativeJoinAction(OSObject *owner,void *input,void *abortFlag,void *,void *)
+IOReturn Ath10kPCIDevice::nativeJoinAction(OSObject *owner,void *input,void *,void *,void *)
 {
     auto *self=OSDynamicCast(Ath10kPCIDevice,owner);
     if(!self || !input)return kIOReturnBadArgument;
+    auto &args=*static_cast<NativeJoinActionArgs *>(input);
+    if(args.kind!=NativeJoinActionKind::kQueue &&
+       args.kind!=NativeJoinActionKind::kAbort &&
+       args.kind!=NativeJoinActionKind::kLeave)
+        return kIOReturnBadArgument;
     if(!self->_nativeCoreReady || !self->_wmiLive.active || !self->_runtimeActive ||
        !self->_wmiInit.ready || !self->_wmiScanChannels.completed ||
        self->_dmaQuarantine)return kIOReturnNotReady;
     auto &connection=self->_connection;
-    if(abortFlag) {
-        const UInt32 generation=*static_cast<const UInt32 *>(input);
+    if(args.kind==NativeJoinActionKind::kAbort ||
+       args.kind==NativeJoinActionKind::kLeave) {
+        const UInt32 generation=args.generation;
         if(!generation || generation!=self->_nativeJoinGeneration)return kIOReturnNotFound;
         if(connection.stage==Ath10k::LinkStage::Disabled)return kIOReturnNotFound;
-        if(abortFlag==reinterpret_cast<void *>(2)) {
+        if(args.kind==NativeJoinActionKind::kLeave) {
             if(connection.disconnect!=Ath10k::DisconnectStage::None)
                 return connection.diagnostics.cancelOrigin &&
                        !strcmp(connection.diagnostics.cancelOrigin,"native-leave")
@@ -2699,7 +2718,6 @@ IOReturn Ath10kPCIDevice::nativeJoinAction(OSObject *owner,void *input,void *abo
             connection.diagnostics.cancelOrigin="native-leave";
             return kIOReturnSuccess;
         }
-        if(abortFlag!=reinterpret_cast<void *>(1))return kIOReturnBadArgument;
         connection.cancelRequested=true;
         if(!connection.error || !strcmp(connection.error,"none"))connection.error="native-join-aborted";
         connection.diagnostics.cancelOrigin="native-join-abort";
@@ -2707,11 +2725,10 @@ IOReturn Ath10kPCIDevice::nativeJoinAction(OSObject *owner,void *input,void *abo
     }
 
     if(!self->_networkEnabled)return kIOReturnNotReady;
-    const auto *joinArgs=static_cast<const NativeJoinQueueArgs *>(input);
-    if(!joinArgs->request)return kIOReturnBadArgument;
-    const auto &request=*joinArgs->request;
-    if(!ath10kNativeValidateJoinRequest(&request))return kIOReturnBadArgument;
-    if(!ath10kNativeGenerationIsNewer(request.header.generation,self->_nativeJoinGeneration))
+    const auto *request=args.request;
+    if(!request || args.generation!=request->header.generation ||
+       !ath10kNativeValidateJoinRequest(request))return kIOReturnBadArgument;
+    if(!ath10kNativeGenerationIsNewer(request->header.generation,self->_nativeJoinGeneration))
         return kIOReturnNotFound;
     // _nativeScanRequestValid is intentionally cleared when scan transport
     // reaches its terminal state; the retained request value plus nativeRequest
