@@ -2665,8 +2665,9 @@ IOReturn Ath10kPCIDevice::nativeBSSAction(OSObject *owner,void *input,void *,voi
     const SInt32 estimate=b.snr>127u?-127:(static_cast<SInt32>(b.snr)-95);
     out.rssi_dbm=static_cast<SInt8>(estimate<-127?-127:(estimate>0?0:estimate));
     out.noise_dbm=0; // Per-BSS noise is not measured by this firmware event.
-    out.ie_length=b.ieLength>ATH10K_NATIVE_MAX_BSS_IE_BYTES
+    const UInt32 ieLength=b.ieLength>ATH10K_NATIVE_MAX_BSS_IE_BYTES
         ? ATH10K_NATIVE_MAX_BSS_IE_BYTES:b.ieLength;
+    out.ie_length=static_cast<UInt16>(ieLength);
     for(UInt32 i=0;i<out.ie_length;++i)out.ies[i]=b.ies[i];
     out.capabilities=b.capabilities;
     out.beacon_interval=b.beaconInterval;
