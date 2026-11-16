@@ -9,11 +9,30 @@ int main(void) {
     if (sizeof(Ath10kNativeJoinSnapshot) != 32u) return 13;
     if (offsetof(Ath10kNativeJoinSnapshot, station_beacon_serial) != 8u) return 14;
     if (sizeof(Ath10kNativeCapabilities) != 164u) return 12;
+    if (sizeof(Ath10kNativeJoinRequest) != 64u) return 15;
+    if (offsetof(Ath10kNativeJoinRequest, scan_generation) != 20u) return 16;
+    if (offsetof(Ath10kNativeJoinRequest, bssid) != 26u) return 17;
+    if (offsetof(Ath10kNativeJoinRequest, ssid) != 32u) return 18;
     if (sizeof(Ath10kNativeScanStatus) != 16u) return 7;
     if (ATH10K_NATIVE_LINK_IDLE != 0 || ATH10K_NATIVE_LINK_CONNECTED != 3) return 11;
     if (sizeof(Ath10kNativeBSSRecord) != 597u) return 3;
     if (offsetof(Ath10kNativeBSSRecord, capabilities) != 560u) return 8;
     if (offsetof(Ath10kNativeBSSRecord, rates) != 565u) return 9;
+
+    Ath10kNativeJoinRequest join = {0};
+    join.header.version = ATH10K_NATIVE_ABI_VERSION;
+    join.header.size = (uint16_t)sizeof(join);
+    join.header.operation = ATH10K_NATIVE_OP_ASSOCIATE;
+    join.header.generation = 1;
+    join.header.payload_bytes = (uint32_t)(sizeof(join) - sizeof(join.header));
+    join.scan_generation = 3;
+    join.security_mode = ATH10K_NATIVE_SECURITY_OPEN;
+    join.ssid_length = 3;
+    join.bssid[0] = 0x02;
+    join.ssid[0] = 'a'; join.ssid[1] = 'p'; join.ssid[2] = '1';
+    if (!ath10kNativeValidateJoinRequest(&join)) return 19;
+    join.security_mode = ATH10K_NATIVE_SECURITY_WPA2_PSK;
+    if (ath10kNativeValidateJoinRequest(&join)) return 20;
 
     Ath10kNativeScanRequest scan = {0};
     scan.header.version = ATH10K_NATIVE_ABI_VERSION;
