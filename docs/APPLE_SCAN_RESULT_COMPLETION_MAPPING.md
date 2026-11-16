@@ -93,15 +93,17 @@ Conversion requirements:
 
 ## Pinned reference result-buffer layout
 
-The pinned AirportItlwm reference's `apple80211_var.h` declares the post-macOS-12
-inline IE-buffer form of `apple80211_scan_result`. In that reference header the
-relevant packed layout is:
+The pinned AirportItlwm revision's `apple80211_var.h` declares
+`apple80211_scan_result` with a pointer-valued `asr_ie_data` field. It is **not**
+an inline 1024-byte IE array. The declaration is not marked as a whole-structure
+packed type; only the small `unk` member carries packed/aligned(1) attributes.
+For the x86_64 ABI used by this project, the declaration implies these offsets:
 
-| Offset | Field | Reference size |
+| Offset | Field | Size |
 |---:|---|---:|
 | `0x00` | version | 4 |
 | `0x04` | channel (version/channel/flags) | 12 |
-| `0x10` | reserved/unknown | 2 |
+| `0x10` | unknown | 2 |
 | `0x12` | noise | 2 |
 | `0x14` | SNR | 2 |
 | `0x16` | RSSI | 2 |
@@ -109,25 +111,31 @@ relevant packed layout is:
 | `0x1a` | capability | 2 |
 | `0x1c` | BSSID | 6 |
 | `0x22` | rate count | 1 |
+| `0x23` | unknown byte | 1 |
 | `0x24` | 15 rate values (32-bit each) | 60 |
 | `0x60` | SSID length | 1 |
 | `0x61` | SSID | 32 |
+| `0x81` | packed unknown field | 2 |
+| `0x83` | unknown byte | 1 |
 | `0x84` | age | 4 |
+| `0x88` | unknown 16-bit field | 2 |
 | `0x8a` | IE length | 2 |
-| `0x8c` | inline IE bytes | 1024 |
+| `0x8c` | unknown 32-bit field | 4 |
+| `0x90` | `asr_ie_data` pointer | 8 |
+| `0x98` | end / structure size | — |
 
-That reference declaration yields a packed size of `0x48c` bytes. Treat these as
-pinned-reference observations, not as a substitute for compiling against the
-user's local macOS 15.7 SDK: the frontend must assert `sizeof` and the offsets of
-every field it accesses. In particular, do not use the pre-macOS-12 pointer form
-of `asr_ie_data`.
+These offsets and the expected `sizeof == 0x98` are derived from the pinned
+reference declaration for x86_64. They must be confirmed by compiling against the
+local macOS 15.7 SDK before any converter uses them. The IE pointer is caller-owned
+storage whose capacity is not encoded in the structure; never assume 1024 bytes
+unless the caller's contract explicitly supplies that capacity.
 
 The bridge currently exports up to 32 rate bytes and 512 IE bytes. The converter
 must cap rates at the Apple structure's 15-entry limit, widen each rate byte into
-the destination's 32-bit slot, and copy no more than the record's validated
-`ie_length` and the Apple inline IE capacity. It must set the actual copied IE
-length. The bridge's 512-byte IE bound is an intentional current limitation, not
-a reason to read beyond the record.
+the destination's 32-bit slot, and copy IE bytes only when the caller-provided
+buffer capacity is independently known. It must set the actual copied IE length.
+The bridge's 512-byte IE bound is an intentional current limitation, not a reason
+to read beyond the record or write beyond the caller's buffer.
 
 ## Implementation sequence
 
