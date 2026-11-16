@@ -12,4 +12,5 @@ CC=$(xcrun --find clang)
 "$CC" -std=c11 -Wall -Wextra -Werror "$ROOT/tests/test_native_bridge.c" -o "$TMP/test-c"
 "$TMP/test-cxx"
 "$TMP/test-c"
-echo "Native bridge ABI C/C++ layout tests: PASS"
+make -C "$ROOT" check-native-scan-builder
+echo "Native bridge ABI and native WMI scan builder checks: PASS"
