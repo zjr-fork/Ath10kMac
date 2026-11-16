@@ -184,6 +184,79 @@ static inline int ath10kNativeValidateScanRequest(const Ath10kNativeScanRequest 
     return 1;
 }
 
+/* Sequoia 15.x WCL scan-request wire layout, decoded without Apple C++ ABI
+ * objects crossing the core boundary. The frontend passes the fixed request
+ * allocation size it was given by IO80211 (0x1550 bytes in the pinned ABI). */
+#define ATH10K_NATIVE_APPLE_SCAN_MIN_BYTES 0x58u
+#define ATH10K_NATIVE_APPLE_SCAN_MAX_BYTES 0x1550u
+#define ATH10K_NATIVE_APPLE_SCAN_MAX_CHANNEL_ENTRIES 400u
+
+static inline uint32_t ath10kNativeReadLE32(const uint8_t *p) {
+    return (uint32_t)p[0] | ((uint32_t)p[1] << 8) |
+           ((uint32_t)p[2] << 16) | ((uint32_t)p[3] << 24);
+}
+
+static inline int ath10kNativeDecodeAppleScanRequest(const void *buffer,
+                                                      uint32_t length,
+                                                      uint32_t generation,
+                                                      Ath10kNativeScanRequest *out) {
+    if (!buffer || !out || !generation ||
+        length < ATH10K_NATIVE_APPLE_SCAN_MIN_BYTES ||
+        length > ATH10K_NATIVE_APPLE_SCAN_MAX_BYTES) return 0;
+    const uint8_t *p = (const uint8_t *)buffer;
+    const uint32_t ssid_length = ath10kNativeReadLE32(p + 0x1c);
+    const uint32_t scan_type = ath10kNativeReadLE32(p + 0x40);
+    const uint32_t channel_entries = ath10kNativeReadLE32(p + 0x54);
+    if (ssid_length > ATH10K_NATIVE_MAX_SSID || scan_type < 1 || scan_type > 4 ||
+        channel_entries > ATH10K_NATIVE_APPLE_SCAN_MAX_CHANNEL_ENTRIES ||
+        channel_entries > (length - ATH10K_NATIVE_APPLE_SCAN_MIN_BYTES) / 12u)
+        return 0;
+
+    uint8_t *dst = (uint8_t *)out;
+    for (uint32_t i = 0; i < sizeof(*out); ++i) dst[i] = 0;
+    out->header.version = ATH10K_NATIVE_ABI_VERSION;
+    out->header.size = (uint16_t)sizeof(*out);
+    out->header.operation = ATH10K_NATIVE_OP_SCAN_START;
+    out->header.generation = generation;
+    out->header.payload_bytes = (uint32_t)(sizeof(*out) - sizeof(out->header));
+    out->scan_type = scan_type == 2 ? ATH10K_NATIVE_SCAN_PASSIVE : ATH10K_NATIVE_SCAN_ACTIVE;
+
+    if (ssid_length) {
+        out->ssid_count = 1;
+        out->ssids[0].length = (uint8_t)ssid_length;
+        for (uint32_t i = 0; i < ssid_length; ++i) out->ssids[0].bytes[i] = p[0x20 + i];
+    }
+
+    uint8_t bssid_nonzero = 0, bssid_not_broadcast = 0;
+    for (uint32_t i = 0; i < 6; ++i) {
+        out->bssid[i] = p[0x14 + i];
+        bssid_nonzero |= out->bssid[i];
+        bssid_not_broadcast |= (uint8_t)(out->bssid[i] ^ 0xffu);
+    }
+    if (bssid_nonzero && bssid_not_broadcast) {
+        if (out->bssid[0] & 1u) return 0;
+        out->has_bssid = 1;
+    } else {
+        for (uint32_t i = 0; i < 6; ++i) out->bssid[i] = 0;
+    }
+
+    for (uint32_t i = 0; i < channel_entries; ++i) {
+        const uint8_t *entry = p + ATH10K_NATIVE_APPLE_SCAN_MIN_BYTES + 12u * i;
+        const uint32_t channel = ath10kNativeReadLE32(entry + 4);
+        const uint32_t flags = ath10kNativeReadLE32(entry + 8);
+        if (!channel || channel > 196 || (flags & 0x2000u) ||
+            ((flags & 0x8u) && channel > 14) ||
+            ((flags & 0x10u) && channel <= 14)) continue;
+        int duplicate = 0;
+        for (uint32_t j = 0; j < out->channel_count; ++j)
+            if (out->channels[j] == channel) duplicate = 1;
+        if (duplicate) continue;
+        if (out->channel_count >= ATH10K_NATIVE_MAX_SCAN_CHANNELS) return 0;
+        out->channels[out->channel_count++] = (uint16_t)channel;
+    }
+    return ath10kNativeValidateScanRequest(out);
+}
+
 static inline int ath10kNativeValidateKeyRequest(const Ath10kNativeKeyRequest *r) {
     if (!r || !ath10kNativeHeaderValid(&r->header, ATH10K_NATIVE_OP_SET_KEY,
                                        (uint16_t)sizeof(*r))) return 0;
