@@ -9,6 +9,15 @@
 #define super IOEthernetController
 OSDefineMetaClassAndStructors(Ath10kPCIDevice, IOEthernetController)
 
+struct NativeScanQueueArgs {
+    const Ath10kNativeScanRequest *request;
+    UInt32 *generationOut;
+};
+struct NativeBSSCopyArgs {
+    UInt32 generation,index,count;
+    Ath10kNativeBSSRecord *record;
+};
+
 // Standard PCI configuration-space offsets/capability IDs.
 static constexpr UInt8 kPCIConfigProgIf        = 0x09;
 static constexpr UInt8 kPCIConfigSubclass      = 0x0a;
@@ -2565,11 +2574,13 @@ const char *Ath10kPCIDevice::serviceWMIScanChannels(UInt64 nowMs)
     return nullptr;
 }
 
-IOReturn Ath10kPCIDevice::queueNativeScanRequest(const Ath10kNativeScanRequest *request)
+IOReturn Ath10kPCIDevice::queueNativeScanRequest(const Ath10kNativeScanRequest *request,UInt32 *generationOut)
 {
+    if(generationOut)*generationOut=0;
     if(!request || !ath10kNativeValidateScanRequest(request))return kIOReturnBadArgument;
     if(!_wmiWorkLoop || isInactive())return kIOReturnNotReady;
-    return _wmiWorkLoop->runAction(nativeScanAction,this,const_cast<Ath10kNativeScanRequest *>(request),nullptr,nullptr);
+    NativeScanQueueArgs args{request,generationOut};
+    return _wmiWorkLoop->runAction(nativeScanAction,this,&args,nullptr,nullptr);
 }
 
 IOReturn Ath10kPCIDevice::abortNativeScanRequest(UInt32 generation)
@@ -2599,7 +2610,9 @@ IOReturn Ath10kPCIDevice::nativeScanAction(OSObject *owner,void *input,void *abo
         return kIOReturnSuccess;
     }
 
-    const auto &request=*static_cast<const Ath10kNativeScanRequest *>(input);
+    const auto &args=*static_cast<const NativeScanQueueArgs *>(input);
+    if(!args.request)return kIOReturnBadArgument;
+    const auto &request=*args.request;
     if(!ath10kNativeValidateScanRequest(&request))return kIOReturnBadArgument;
     if(!self->_wmiLive.active || !self->_runtimeActive || self->_wmiEvents.rfKill)
         return kIOReturnNotReady;
@@ -2646,6 +2659,7 @@ IOReturn Ath10kPCIDevice::nativeScanAction(OSObject *owner,void *input,void *abo
     self->_nativeScanRequest=request;
     self->_nativeScanRequest.header.generation=generation;
     self->_nativeScanRequestValid=true;
+    if(args.generationOut)*args.generationOut=generation;
     return kIOReturnSuccess;
 }
 
