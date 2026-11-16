@@ -89,7 +89,8 @@ typedef enum Ath10kNativeBSSFlags {
     ATH10K_NATIVE_BSS_PRIVACY = 1u << 1,
     ATH10K_NATIVE_BSS_HAS_RSN = 1u << 2,
     ATH10K_NATIVE_BSS_RSSI_ESTIMATED = 1u << 3,
-    ATH10K_NATIVE_BSS_RATES_VALID = 1u << 4
+    ATH10K_NATIVE_BSS_RATES_VALID = 1u << 4,
+    ATH10K_NATIVE_BSS_HAS_WPA = 1u << 5
 } Ath10kNativeBSSFlags;
 
 #pragma pack(push, 1)
