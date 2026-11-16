@@ -71,8 +71,8 @@ def main() -> int:
             for name in module.EXPECTED_INFRA_METHOD_ORDER
         ]
         audited.write_text(
-            "class IO80211InfraProtocol { public:\\n"
-            + "\\n".join(declarations) + "\\n};\\n",
+            "class IO80211InfraProtocol { public:\n"
+            + "\n".join(declarations) + "\n};\n",
             encoding="utf-8",
         )
         audited_command = command.copy()
@@ -80,11 +80,11 @@ def main() -> int:
         audited_command[audited_command.index("--expected-infra") + 1] = "190"
         good_audit = subprocess.run(audited_command, capture_output=True, text=True)
         if good_audit.returncode:
-            raise SystemExit(f"generator rejected the audited 190-slot fixture:\\n{good_audit.stderr}")
+            raise SystemExit(f"generator rejected the audited 190-slot fixture:\n{good_audit.stderr}")
         declarations[0], declarations[1] = declarations[1], declarations[0]
         audited.write_text(
-            "class IO80211InfraProtocol { public:\\n"
-            + "\\n".join(declarations) + "\\n};\\n",
+            "class IO80211InfraProtocol { public:\n"
+            + "\n".join(declarations) + "\n};\n",
             encoding="utf-8",
         )
         bad_order = subprocess.run(audited_command, capture_output=True, text=True)
