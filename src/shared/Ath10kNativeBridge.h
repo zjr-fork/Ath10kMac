@@ -76,6 +76,22 @@ typedef enum Ath10kNativeCipher {
     ATH10K_NATIVE_CIPHER_TKIP = 2
 } Ath10kNativeCipher;
 
+typedef enum Ath10kNativeCapabilityFlags {
+    ATH10K_NATIVE_CAP_STATION = 1u << 0,
+    ATH10K_NATIVE_CAP_SCAN_ACTIVE = 1u << 1,
+    ATH10K_NATIVE_CAP_SCAN_PASSIVE = 1u << 2,
+    ATH10K_NATIVE_CAP_WPA2_PSK = 1u << 3,
+    ATH10K_NATIVE_CAP_BAND_2GHZ = 1u << 4,
+    ATH10K_NATIVE_CAP_BAND_5GHZ = 1u << 5,
+    ATH10K_NATIVE_CAP_HT = 1u << 6,
+    ATH10K_NATIVE_CAP_VHT = 1u << 7
+} Ath10kNativeCapabilityFlags;
+
+typedef enum Ath10kNativeCipherFlags {
+    ATH10K_NATIVE_CAP_CIPHER_CCMP128_PAIRWISE = 1u << 0,
+    ATH10K_NATIVE_CAP_CIPHER_TKIP_GROUP = 1u << 1
+} Ath10kNativeCipherFlags;
+
 typedef enum Ath10kNativeLinkState {
     ATH10K_NATIVE_LINK_IDLE = 0,
     ATH10K_NATIVE_LINK_SCANNING = 1,
@@ -166,6 +182,18 @@ typedef struct ATH10K_NATIVE_PACKED Ath10kNativeKeyRequest {
     uint8_t rsc[8];
     uint8_t key[ATH10K_NATIVE_MAX_KEY_BYTES];
 } Ath10kNativeKeyRequest;
+
+typedef struct ATH10K_NATIVE_PACKED Ath10kNativeCapabilities {
+    Ath10kNativeMessageHeader header;
+    uint32_t feature_flags;
+    uint32_t cipher_flags;
+    uint16_t channel_count;
+    uint16_t max_scan_channels;
+    uint8_t max_ssid_length;
+    uint8_t max_scan_ssids;
+    uint16_t max_bss_ie_bytes;
+    uint16_t channels[ATH10K_NATIVE_MAX_SCAN_CHANNELS];
+} Ath10kNativeCapabilities;
 
 typedef struct ATH10K_NATIVE_PACKED Ath10kNativeLinkSnapshot {
     Ath10kNativeMessageHeader header;
