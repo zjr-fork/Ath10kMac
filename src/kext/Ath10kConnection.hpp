@@ -183,7 +183,7 @@ struct ConnectionState {
     LinkStage stage=LinkStage::Disabled;
     bool secure=false,portAuthorized=false,securityAck=false,authorizeRequested=false;
     bool cancelRequested=false,rekeySkipGroup=false,vdevStarted=false,vdevUp=false,eapolPause=false;
-    UInt8 rekeyKind=0;UInt32 securityGeneration=0,beaconSerial=0;
+    UInt8 rekeyKind=0;UInt32 securityGeneration=0,beaconSerial=0,stationBeaconSerial=0;
     int32_t signalDbm=INT32_MIN;
     UInt8 installedPair[16]{},installedGroups[4][32]{};bool pairInstalled=false,groupInstalled[4]{};
     UInt32 securityPhase=0; // 0 EAPOL, 1 PTK, 2 GTK, 3 authorize, 4 barrier, 5 ready
@@ -269,6 +269,7 @@ inline void resetDisconnected(ConnectionState &s) {
     const UInt16 tx=s.txId,seq=s.sequence;
     const UInt64 txb=s.txBytes,rxb=s.rxBytes;
     const UInt32 count=s.disconnectCount+1,txp=s.txPackets,txe=s.txErrors,rxp=s.rxPackets,rxd=s.rxDropped;
+    const UInt32 stationBeacons=s.stationBeaconSerial;
     const UInt32 fwHT=s.firmwareHT,fwVHT=s.firmwareVHT;const UInt8 chains=s.rfChains;
     UInt32 rxReasons[ConnectionState::DropCount];
     for(UInt32 i=0;i<ConnectionState::DropCount;++i)rxReasons[i]=s.rxReasons[i];
@@ -284,6 +285,7 @@ inline void resetDisconnected(ConnectionState &s) {
     s.wmiSequence=wmi;s.httSequence=htt;s.txId=tx;s.sequence=seq;s.txPowerHalfDbm=power;
     s.txBytes=txb;s.rxBytes=rxb;
     s.disconnectCount=count;s.txPackets=txp;s.txErrors=txe;s.rxPackets=rxp;s.rxDropped=rxd;
+    s.stationBeaconSerial=stationBeacons;
     s.firmwareHT=fwHT;s.firmwareVHT=fwVHT;s.rfChains=chains;
     for(UInt32 i=0;i<ConnectionState::DropCount;++i)s.rxReasons[i]=rxReasons[i];
     s.rxLastReason=lastReason;
@@ -1124,6 +1126,7 @@ inline void receiveStationManagement(ConnectionState &s,const UInt8 *f,UInt32 by
         if(!channelSwitchIEs(s,f+36,bytes-36,false,rxChannel,subtype==0x50))return;
         if(rxChannel==s.operatingChannel){++s.beaconSerial;
             if(subtype==0x80){
+                ++s.stationBeaconSerial;
                 if(htcReadLE16(f+32))s.ap.beaconInterval=htcReadLE16(f+32);
                 s.ap.capabilities=htcReadLE16(f+34);
                 if(!s.maintenance.valid || !sameAPConfig(desiredAPConfig(s),s.maintenance.applied))s.maintenance.blocked=true;}}
