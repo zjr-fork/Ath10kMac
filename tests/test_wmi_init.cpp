@@ -254,6 +254,18 @@ int main(){
         assert(Ath10k::buildWMIInit(frame,sizeof(frame),boot,2));
         for(auto byte:frame)assert(byte==0xaa); // reject before write/shift
     }
+    // QCA9377 is wired as a one-chain device by the PCI init path even when
+    // firmware reports a larger maximum. INIT and both PDEV chain commands
+    // must retain the same effective mask.
+    auto qca9377=good._wmi;qca9377.rfChains=2;
+    assert(!Ath10k::buildWMIInit(frame,sizeof(frame),qca9377,2,1));
+    assert(Ath10k::wmiReadLE32(frame+76)==1 && Ath10k::wmiReadLE32(frame+80)==1);
+    UInt8 radioFrame[28]{};
+    for(UInt32 param:{1u,2u}){
+        assert(Ath10k::buildWMIRadio(radioFrame,sizeof(radioFrame),2,param,1));
+        assert(Ath10k::wmiReadLE32(radioFrame+20)==param);
+        assert(Ath10k::wmiReadLE32(radioFrame+24)==Ath10k::wmiReadLE32(frame+76));
+    }
 
     memcpy(frame,baseline,sizeof(frame));
     assert(Ath10k::wmiReadLE32(frame+48)==4 && Ath10k::wmiReadLE32(frame+52)==33);
