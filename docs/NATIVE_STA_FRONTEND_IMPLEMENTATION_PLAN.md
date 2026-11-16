@@ -95,6 +95,18 @@ transferring the selected candidate could join the wrong AP or use the wrong
 security profile. The Join observer added earlier only observes completion
 facts; it does not initiate a connection.
 
+A deeper audit of the current connection state confirms a second, more
+fundamental limitation: the existing configured-connect path only populates
+SSID, BSSID, local MAC and TX power, then enters `LinkStage::Scan`. The
+`ConnectionState::secure` flag defaults false, and no current production
+assignment was found that promotes it to true from a validated native security
+request. Consequently `selectOpenBSS()` rejects protected BSSes on this path;
+the later WPA2 key-install/controlled-port state machine is present, but its
+native credential/security-profile ingress is not yet implemented. Do not
+describe WPA2 as operational merely because key-installation code and
+authorization barriers exist. Native WPA2 requires a separate, audited
+credential-to-core integration and an end-to-end EAPOL/4-way-handshake test.
+
 Required next core work, after the Sequoia 15.7 candidate/key ABI is verified:
 
 1. Define a pointer-free, bounded native Join value request. It must represent
