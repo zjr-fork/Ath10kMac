@@ -112,6 +112,10 @@ int main() {
     openBSS.ssid[0]='a';openBSS.flags|=ATH10K_NATIVE_BSS_HIDDEN;
     openBSS.ssid_length=0;
     if (!ath10kNativeOpenJoinMatchesBSS(&join,&openBSS)) return 27;
+    openBSS.ssid_length=33;
+    if (ath10kNativeOpenJoinMatchesBSS(&join,&openBSS)) return 28;
+    openBSS.ssid_length=3;openBSS.rate_count=33;
+    if (ath10kNativeOpenJoinMatchesBSS(&join,&openBSS)) return 29;
 
     if (!ath10kNativeValidateJoinRequest(&join)) return 16;
     join.security_mode=ATH10K_NATIVE_SECURITY_WPA2_PSK;
