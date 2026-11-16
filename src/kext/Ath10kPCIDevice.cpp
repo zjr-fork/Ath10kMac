@@ -2632,7 +2632,7 @@ IOReturn Ath10kPCIDevice::nativeBSSAction(OSObject *owner,void *input,void *,voi
     out.channel=static_cast<UInt16>(b.rxChannel);
     const UInt32 frequencyIndex=Ath10k::wmiScanFrequencyIndex(b.rxChannel);
     out.frequency_mhz=static_cast<UInt16>(Ath10k::wmiScanFrequency(frequencyIndex));
-    const SInt32 estimate=static_cast<SInt32>(b.snr)-95;
+    const SInt32 estimate=b.snr>127u?-127:(static_cast<SInt32>(b.snr)-95);
     out.rssi_dbm=static_cast<SInt8>(estimate<-127?-127:(estimate>0?0:estimate));
     out.noise_dbm=0; // Per-BSS noise is not measured by this firmware event.
     out.ie_length=b.ieLength>ATH10K_NATIVE_MAX_BSS_IE_BYTES
