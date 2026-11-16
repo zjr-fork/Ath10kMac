@@ -107,3 +107,7 @@ check-native-scan-builder: check-sdk src/kext/Ath10kPayload.hpp
 .PHONY: app
 app:
 	./scripts/build-connectivity.sh
+
+.PHONY: check-apple-scan-result-abi
+check-apple-scan-result-abi: check-sdk
+	sh scripts/check-apple-scan-result-abi.sh
