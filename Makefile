@@ -116,6 +116,10 @@ check-apple-scan-result-abi: check-sdk
 check-sequoia-infra-abstractness: check-sdk check-sequoia-probe-generator
 	sh scripts/check-sequoia-infra-abstractness.sh
 
+.PHONY: check-sequoia-controller-abstractness
+check-sequoia-controller-abstractness: check-sdk check-sequoia-controller-probe-generator
+	sh scripts/check-sequoia-controller-abstractness.sh
+
 .PHONY: check-native-scan-cursor
 check-native-scan-cursor: | $(BUILD_DIR)
 	$(CXX) -std=c++17 -Wall -Wextra -Werror tests/test_native_scan_cursor.cpp -o $(BUILD_DIR)/test-native-scan-cursor
@@ -138,9 +142,13 @@ check-wcl-scan-lifecycle: | $(BUILD_DIR)
 check-sequoia-probe-generator:
 	python3 tests/test_generate_sequoia_infra_probe.py
 
+.PHONY: check-sequoia-controller-probe-generator
+check-sequoia-controller-probe-generator:
+	python3 tests/test_generate_sequoia_controller_probe.py
 
-# User-run milestone gate: host regressions, Apple ABI probes, infra concreteness,
-# then the complete kext link/symbol check on the local macOS 15.x toolchain.
+
+# User-run milestone gate: host regressions, Apple ABI probes, controller/interface
+# concreteness, then the complete kext link/symbol check on the local macOS 15.x toolchain.
 .PHONY: check-native-wifi-milestone
 check-native-wifi-milestone:
 	@test -n "$(SEQUOIA_HEADER_ROOT)" || \
@@ -148,5 +156,6 @@ check-native-wifi-milestone:
 	sh scripts/test-native-bridge.sh
 	$(MAKE) check-apple-scan-result-abi
 	SEQUOIA_HEADER_ROOT="$(SEQUOIA_HEADER_ROOT)" $(MAKE) check-sequoia-infra-abstractness
+	SEQUOIA_HEADER_ROOT="$(SEQUOIA_HEADER_ROOT)" $(MAKE) check-sequoia-controller-abstractness
 	$(MAKE) clean
 	$(MAKE) kext
