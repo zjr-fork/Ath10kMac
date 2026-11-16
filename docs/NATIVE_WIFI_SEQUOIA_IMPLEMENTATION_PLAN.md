@@ -80,7 +80,7 @@ Do not infer that an interface is complete because a few familiar methods such a
 
 ## 7. Implementation sequence and acceptance
 
-1. Pin and vendor/reference the exact Sequoia 15.x ABI header snapshot; record source revision and license.
+1. Pin the exact Sequoia 15.x ABI reference revision and license; keep it external and do not vendor GPL-2.0-only itlwm headers into this GPL-3.0 repository.
 2. Add the versioned bridge header and compile-time layout tests, with no hardware behavior changed.
 3. Extract core operations behind the bridge while retaining the current Ethernet frontend; regression-test existing QCA9377 behavior.
 4. Add native scan request/result/abort mapping and test generation, stale-event, timeout and cancellation cases.
