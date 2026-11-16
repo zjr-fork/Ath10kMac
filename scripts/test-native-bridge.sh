@@ -35,6 +35,8 @@ fi
 "$CXX" -isysroot "$SDK" -std=c++17 -Wall -Wextra -Werror "$ROOT/tests/test_wcl_scan_result.cpp" -o "$TMP/test-wcl-scan-result"
 "$TMP/test-wcl-scan-result"
 "$CXX" -isysroot "$SDK" -std=c++17 -Wall -Wextra -Werror "$ROOT/tests/test_wcl_scan_lifecycle.cpp" -o "$TMP/test-wcl-scan-lifecycle"
+"$CXX" -isysroot "$SDK" -std=c++17 -Wall -Wextra -Werror "$ROOT/tests/test_wcl_join_lifecycle.cpp" -o "$TMP/test-wcl-join-lifecycle"
+"$TMP/test-wcl-join-lifecycle"
 "$TMP/test-wcl-scan-lifecycle"
 make -C "$ROOT" check-native-scan-builder
-echo "Native bridge ABI, scan cursor, WCL result serializer/lifecycle, and native WMI scan builder checks: PASS"
+echo "Native bridge ABI, scan cursor, WCL result serializer/scan+join lifecycle, and native WMI scan builder checks: PASS"
