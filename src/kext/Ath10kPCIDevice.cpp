@@ -1063,6 +1063,7 @@ void Ath10kPCIDevice::endWMIRuntime(const char *reason)
     for (auto &radio:_wmiRadio) if (radio.attempted && !radio.completed) radio.status=reason;
     if (_wmiScanChannels.attempted && !_wmiScanChannels.completed) _wmiScanChannels.status=reason;
     if (_wmiScan.attempted && !_wmiScan.completed) _wmiScan.status=reason;
+    _nativeScanRequestValid=false;bzero(&_nativeScanRequest,sizeof(_nativeScanRequest));
     if (_wmiEcho.attempted && !_wmiEcho.completed) _wmiEcho.status=reason;
     if (_wmiTimer) { _wmiTimer->cancelTimeout(); _wmiTimer->disable(); }
     const bool irqOK=stopRuntimeCEIRQ();
@@ -1216,8 +1217,16 @@ void Ath10kPCIDevice::publishWMIRuntimeProperties()
     setProperty("Ath10kWMIScanDwellMs",Ath10k::kWMIScanDwellMs,32);
     setProperty("Ath10kWMIScanFastDwellMs",Ath10k::kWMIScanFastDwellMs,32);
     setProperty("Ath10kWMIScanFastChannelCount",Ath10k::regulatoryScanCountForMode(&_regulatory,true),32);
-    setProperty("Ath10kWMIScanMode",_wmiScan.generation==0?"initial-fast":"manual-full");
-    setProperty("Ath10kWMIScanActiveDwellMs",_wmiScan.generation==0?Ath10k::kWMIScanFastDwellMs:Ath10k::kWMIScanDwellMs,32);
+    const char *scanMode=_wmiScan.nativeRequest
+        ? (_nativeScanRequest.scan_type==ATH10K_NATIVE_SCAN_ACTIVE?"native-active":"native-passive")
+        : (_wmiScan.generation==0?"initial-fast":"manual-full");
+    const UInt32 scanDwell=_wmiScan.nativeRequest
+        ? (_nativeScanRequest.scan_type==ATH10K_NATIVE_SCAN_ACTIVE
+            ? (_nativeScanRequest.active_dwell_ms?_nativeScanRequest.active_dwell_ms:50u)
+            : (_nativeScanRequest.passive_dwell_ms?_nativeScanRequest.passive_dwell_ms:Ath10k::kWMIScanDwellMs))
+        : (_wmiScan.generation==0?Ath10k::kWMIScanFastDwellMs:Ath10k::kWMIScanDwellMs);
+    setProperty("Ath10kWMIScanMode",scanMode);
+    setProperty("Ath10kWMIScanActiveDwellMs",scanDwell,32);
     setProperty("Ath10kWMIScanHostTimeoutMs",Ath10k::kWMIScanHostMs,32);
     setProperty("Ath10kWMIScanPowerHalfDbm",Ath10k::kWMIScanPowerHalfDbm,32);
     setProperty("Ath10kWMIScanPowerSource","regdb-country-board-fw-bounds-and-host-ceiling");
@@ -2587,6 +2596,10 @@ IOReturn Ath10kPCIDevice::nativeScanAction(OSObject *owner,void *input,void *abo
     if(!ath10kNativeValidateScanRequest(&request))return kIOReturnBadArgument;
     if(!self->_wmiLive.active || !self->_runtimeActive || self->_wmiEvents.rfKill)
         return kIOReturnNotReady;
+    if(request.scan_type==ATH10K_NATIVE_SCAN_ACTIVE) {
+        UInt8 nonzero=0;for(UInt32 i=0;i<6;++i)nonzero|=self->_wmiInit.mac[i];
+        if(!nonzero || (self->_wmiInit.mac[0]&1u))return kIOReturnNotReady;
+    }
     UInt32 allowedChannels=0,acceptedChannels[ATH10K_NATIVE_MAX_SCAN_CHANNELS]{};
     auto acceptChannel=[&](UInt32 channel)->bool {
         UInt32 index=Ath10k::kWMIScanChannelCount;
@@ -2624,6 +2637,7 @@ IOReturn Ath10kPCIDevice::nativeScanAction(OSObject *owner,void *input,void *abo
     if(!generation)generation=1;
     Ath10k::resetInPlace(self->_wmiScan);
     self->_wmiScan.generation=generation;
+    self->_wmiScan.nativeRequest=true;
     self->_wmiScan.id=0xa000|((0x36+generation)&0xfff);
     Ath10k::resetInPlace(self->_wmiBSS);
     self->_nativeScanRequest=request;
@@ -2736,11 +2750,21 @@ const char *Ath10kPCIDevice::serviceWMIScan(UInt64 nowMs)
     if (state.txConsumed && state.creditReturned && (state.started || state.cancelRequested) && state.terminal && (!state.stopSubmitted || state.stopConsumed)) {
         state.completed=true;state.status=state.cancelRequested?"scan-cancelled":"scan-completed";
         _nativeScanRequestValid=false;
-        // Success requires correlated STARTED and COMPLETED(reason=0), plus TX/credit.
-        IOLog("Ath10kMac: WMI START_SCAN PASS id=0x%x mode=%s channels=%u dwell=%u started=%s completed=yes reason=%u tx-consumed=yes credit-returned=yes elapsed=%llu ms\n",
-              state.id,fast?"initial-fast":"manual-full",Ath10k::regulatoryScanCountForMode(&_regulatory,fast),
-              fast?Ath10k::kWMIScanFastDwellMs:Ath10k::kWMIScanDwellMs,
-              state.started?"yes":"no",state.reason,static_cast<unsigned long long>(state.elapsedMs));
+        if(state.cancelRequested) {
+            IOLog("Ath10kMac: WMI START_SCAN CANCELLED id=0x%x started=%s stop-consumed=%s elapsed=%llu ms\n",
+                  state.id,state.started?"yes":"no",state.stopConsumed?"yes":"no",
+                  static_cast<unsigned long long>(state.elapsedMs));
+        } else {
+            IOLog("Ath10kMac: WMI START_SCAN PASS id=0x%x origin=%s channels=%u dwell=%u started=%s completed=yes reason=%u tx-consumed=yes credit-returned=yes elapsed=%llu ms\n",
+                  state.id,state.nativeRequest?"native":(fast?"initial-fast":"manual-full"),
+                  state.nativeRequest?Ath10k::htcReadLE32(static_cast<const UInt8 *>(_wmiTxBuffer.virtualAddress())+80):
+                      Ath10k::regulatoryScanCountForMode(&_regulatory,fast),
+                  state.nativeRequest?(_nativeScanRequest.scan_type==ATH10K_NATIVE_SCAN_ACTIVE
+                      ?(_nativeScanRequest.active_dwell_ms?_nativeScanRequest.active_dwell_ms:50u)
+                      :(_nativeScanRequest.passive_dwell_ms?_nativeScanRequest.passive_dwell_ms:Ath10k::kWMIScanDwellMs))
+                      :(fast?Ath10k::kWMIScanFastDwellMs:Ath10k::kWMIScanDwellMs),
+                  state.started?"yes":"no",state.reason,static_cast<unsigned long long>(state.elapsedMs));
+        }
     }
     return nullptr;
 }
