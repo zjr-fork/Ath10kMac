@@ -130,6 +130,16 @@ local macOS 15.7 SDK before any converter uses them. The IE pointer is caller-ow
 storage whose capacity is not encoded in the structure; never assume 1024 bytes
 unless the caller's contract explicitly supplies that capacity.
 
+The pinned reference's `convertNodeToScanResult` uses
+`memcpy(result->asr_ie_data, ..., MIN(result->asr_ie_len, sizeof(result->asr_ie_data)))`.
+Because `asr_ie_data` is a pointer in the pinned header, `sizeof` here is pointer
+size, not the destination allocation capacity. This expression is not a valid
+capacity contract and must not be copied. The reference also does not demonstrate
+how the caller allocates or sizes that IE buffer. Before supporting IE copying in
+the native getter, locate and verify the actual caller allocation/ownership contract
+in the target macOS 15.7 path. Until then, populate scalar fields only and set
+`asr_ie_len = 0` rather than dereferencing an unverified pointer.
+
 The bridge currently exports up to 32 rate bytes and 512 IE bytes. The converter
 must cap rates at the Apple structure's 15-entry limit, widen each rate byte into
 the destination's 32-bit slot, and copy IE bytes only when the caller-provided
