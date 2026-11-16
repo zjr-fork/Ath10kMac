@@ -166,35 +166,6 @@ opaque Apple association-candidate buffer remains subject to the separate 15.7
 ABI proof. WPA2 stays unadvertised and rejected until credential ingress and
 the full EAPOL/key/controlled-port path are verified.
 
-The shared ABI now defines a fixed 64-byte `Ath10kNativeJoinRequest`:
-- the ordinary operation header carries the frontend Join generation;
-- `scan_generation` binds the request to the exact completed native scan/BSS snapshot;
-- BSSID and SSID identify the AP selected by macOS;
-- `security_mode` is explicit rather than inferred from beacon privacy bits.
-
-The validator currently accepts only OPEN, requires nonzero scan and Join generations,
-a unicast nonzero BSSID, and an SSID length of 1..32. WPA2-PSK is represented as
-a reserved enum value but is deliberately rejected. The C and C++ host ABI tests
-cover the 64-byte size, field offsets, valid open request, unsupported WPA2,
-multicast BSSID, missing scan generation and overlength SSID.
-
-This is a value-contract milestone only. There is not yet a
-`queueNativeJoinRequest()` implementation, cache-generation resolver, credential
-ingress, or WCL callback wiring. The core must still reject a request unless its
-scan generation equals the last successfully completed native scan, the selected
-BSSID resolves to one unambiguous cache record, the SSID matches (with a narrowly
-defined hidden-SSID exception), and that record is a valid infrastructure BSS.
-It must seed the existing connection state from that exact record and never call
-the legacy automatic `selectOpenBSS()` path as a fallback. The operation must also
-be rejected while another Join/disconnect/scan owns the connection state.
-
-The open-only first vertical slice is intentional: it can validate AP selection,
-firmware association, selected-AP Beacon observation and controlled-port opening
-without pretending that WPA2 credentials are already supported. WPA2 must remain
-unadvertised until the separate key-material contract and full EAPOL/4-way
-handshake are proven. The new struct does not authorize decoding Apple's opaque
-`apple80211AssocCandidates` buffer; that independent 15.7 ABI gate remains open.
-
 ## Sequoia reference lead for association candidates (not yet approved for decoding)
 
 The pinned Sequoia 15 header declares the WCL virtual as
