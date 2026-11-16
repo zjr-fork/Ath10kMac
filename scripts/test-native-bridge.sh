@@ -17,4 +17,4 @@ CC=$(xcrun --find clang)
 "$CXX" -std=c++17 -Wall -Wextra -Werror "$ROOT/tests/test_wcl_scan_result.cpp" -o "$TMP/test-wcl-scan-result"
 "$TMP/test-wcl-scan-result"
 make -C "$ROOT" check-native-scan-builder
-echo "Native bridge ABI, scan cursor, and native WMI scan builder checks: PASS"
+echo "Native bridge ABI, scan cursor, WCL result serializer, and native WMI scan builder checks: PASS"
