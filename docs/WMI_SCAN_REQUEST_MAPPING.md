@@ -1,6 +1,6 @@
 # Ath10k WMI scan request mapping
 
-Status: protocol layout audit complete. The existing internal scan builder is unchanged; native request serialization is the next implementation step.
+Status: request serializer and WMI-work-loop queue/cancel path implemented on the development branch. Kernel compilation and hardware validation are still pending.
 
 ## Reference
 
@@ -42,8 +42,9 @@ The existing builder emits an empty SSID array, one broadcast BSSID, and the pol
 - Set `num_probes` and the passive bit consistently with active/passive scan mode. For WMI-TLV, preserve the documented probe-filter inversion. Keep the currently validated event subscription and scan requestor-ID semantics.
 - Compute frame size from the actual channel and SSID counts, check the HTC maximum message size and DMA buffer capacity before writing, and clear the entire frame before populating it.
 - Keep one WMI scan in flight. Do not mutate/reuse the shared buffer while CE3 owns it. On abort, preserve the existing ordering: START_SCAN descriptor consumed and HTC credit returned before STOP_SCAN is submitted.
+- Keep the random-probe MAC address/mask fields zero until random-address scanning is explicitly negotiated; ordinary scans use the firmware VDEV address.
 - A successful WMI transaction requires correlated STARTED/COMPLETED events and transport ownership completion. An empty BSS cache is a valid result, not proof that scan submission failed.
 
 ## Current gap
 
-`buildWMIScan()` currently has no caller-supplied SSID, BSSID, channel, or active/passive parameters. It serializes only the internal startup/manual fixed-list scan. The current `WMIScanState` and service path already own the CE3 descriptor, credit, event correlation, timeout and STOP_SCAN lifecycle; extend that state machine rather than adding a second WMI transport path.
+`buildWMIScanRequest()` now serializes the versioned bridge request, and `queueNativeScanRequest()` / `abortNativeScanRequest()` copy and serialize requests on the WMI work loop. The existing `serviceWMIScan()` uses the same CE3 descriptor, HTC credit, event correlation, timeout and STOP_SCAN lifecycle for native requests; the boot-time scan continues through the original builder. Active requests omit DFS channels because this WMI command uses one global passive flag. The Apple80211/WCL frontend does not call these entry points yet, and no native scan result has been published to macOS.
