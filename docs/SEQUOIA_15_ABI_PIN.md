@@ -34,6 +34,10 @@ The pinned `laobamac/itlwm` revision's root `LICENSE` is GNU GPL version 2 (June
 
 The Sequoia `IO80211Controller` is derived from `IOEthernetController`, not from a raw-802.11 packet interface. This means the current controller's Ethernet-MSDU `outputPacket` / `inputPacket` data path may be retained when moving the service superclass to `IO80211Controller`; do not add MPDU reconstruction or raw-frame TX unless the exact Skywalk contract proves it is required. The native Wi-Fi behavior is supplied by the controller/protocol ABI, scan/MLME/security state and correct interface registration, not by merely passing raw 802.11 frames to Skywalk.
 
+## Core bridge progress
+
+The pointer-free ABI now defines a stable `Ath10kNativeLinkSnapshot` and link-state values. `Ath10kPCIDevice::copyNativeLinkSnapshot()` serializes reads on the WMI work-loop gate and exports only bounded SSID/BSSID data, channel, state, open/WPA2 mode, packet/byte counters, and an explicit `-128` RSSI sentinel when the firmware has not supplied a valid signal measurement. It does not invent RSSI or noise values.
+
 ## Frontend implementation implications
 
 1. Include `<Airport/Apple80211.h>` with `AIRPORT_WCL` and `__IO80211_TARGET=__MAC_15_2` set consistently for every translation unit.
