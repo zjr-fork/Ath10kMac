@@ -2666,10 +2666,12 @@ IOReturn Ath10kPCIDevice::nativeCapabilitiesAction(OSObject *owner,void *input,v
     out.header.operation=ATH10K_NATIVE_OP_GET_CAPABILITIES;
     out.header.status=ATH10K_NATIVE_STATUS_OK;
     out.header.payload_bytes=static_cast<UInt32>(sizeof(out)-sizeof(out.header));
+    // Do not advertise WPA2/cipher support until a native credential ingress
+    // drives the security state machine end-to-end. Key installation primitives
+    // alone are not a usable WPA2 station capability.
     out.feature_flags=ATH10K_NATIVE_CAP_STATION|ATH10K_NATIVE_CAP_SCAN_ACTIVE|
-        ATH10K_NATIVE_CAP_SCAN_PASSIVE|ATH10K_NATIVE_CAP_WPA2_PSK;
-    out.cipher_flags=ATH10K_NATIVE_CAP_CIPHER_CCMP128_PAIRWISE|
-        ATH10K_NATIVE_CAP_CIPHER_TKIP_GROUP;
+        ATH10K_NATIVE_CAP_SCAN_PASSIVE;
+    out.cipher_flags=0;
     if(self->_wmi.htCapability)out.feature_flags|=ATH10K_NATIVE_CAP_HT;
     if(self->_wmi.vhtCapability)out.feature_flags|=ATH10K_NATIVE_CAP_VHT;
     out.max_scan_channels=ATH10K_NATIVE_MAX_SCAN_CHANNELS;
