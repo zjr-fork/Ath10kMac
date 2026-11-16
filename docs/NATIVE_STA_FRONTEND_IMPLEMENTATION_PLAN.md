@@ -88,7 +88,7 @@ pointer-free OPEN-only request, and the PCI core exposes
 The new admission path requires the exact generation of a successful native
 scan, an idle station state, and one unambiguous BSS matching the requested
 BSSID and SSID. It rejects privacy-protected, RSN/WPA, IBSS, malformed-rate and
-ambiguous entries. It seeds the existing connection state with the selected AP;
+ambiguous entries. It also rejects BSS records whose SSID length or rate count exceeds the fixed record capacities. It seeds the existing connection state with the selected AP;
 the legacy selector is then used only for regulatory, channel and PHY/rate
 validation, never as a fallback to another AP. The API has not yet been wired
 to `setWCL_ASSOCIATE`, and its kernel-side behavior has not yet been built or
