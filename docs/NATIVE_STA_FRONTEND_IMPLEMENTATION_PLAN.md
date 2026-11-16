@@ -131,7 +131,10 @@ one BSS by BSSID and SSID (with a bounded hidden-SSID exception), rejects
 protected/WPA/RSN and non-infrastructure or incomplete-rate records, then seeds
 the existing station state with the selected AP. The existing `selectOpenBSS()`
 routine is reused as the final regulatory/channel/rate validator; it cannot
-silently select another BSSID. Failed preflight leaves the station disconnected.
+silently select another BSSID. Before preflight, Join admission seeds the same
+firmware HT/VHT capability snapshot and RF-chain count that `serviceConnection()`
+uses on its Scan-to-Start transition, so both selections negotiate against the
+same runtime PHY inputs. Failed preflight leaves the station disconnected.
 Join generations must be newer than the last accepted generation; abort is
 generation-checked and enters the existing cancellation/drain path.
 
