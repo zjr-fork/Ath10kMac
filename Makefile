@@ -117,10 +117,10 @@ check-sequoia-infra-abstractness: check-sdk check-sequoia-probe-generator
 	sh scripts/check-sequoia-infra-abstractness.sh
 
 .PHONY: check-native-scan-cursor
-check-native-scan-cursor:
-	$(CXX) -std=c++17 -Wall -Wextra -Werror tests/test_native_scan_cursor.cpp -o /tmp/ath10k-native-scan-cursor
-	/tmp/ath10k-native-scan-cursor
-	rm -f /tmp/ath10k-native-scan-cursor
+check-native-scan-cursor: | $(BUILD_DIR)
+	$(CXX) -std=c++17 -Wall -Wextra -Werror tests/test_native_scan_cursor.cpp -o $(BUILD_DIR)/test-native-scan-cursor
+	$(BUILD_DIR)/test-native-scan-cursor
+	rm -f $(BUILD_DIR)/test-native-scan-cursor
 
 .PHONY: check-sequoia-probe-generator
 check-sequoia-probe-generator:
