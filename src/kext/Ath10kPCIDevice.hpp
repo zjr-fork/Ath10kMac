@@ -50,6 +50,7 @@ public:
     // onto the WMI work loop; no caller-owned buffer survives the call.
     IOReturn queueNativeScanRequest(const Ath10kNativeScanRequest *);
     IOReturn abortNativeScanRequest(UInt32 generation);
+    IOReturn abortCurrentNativeScanRequest();
 
 private:
     const Ath10kPayload::Profile &payload() const {
