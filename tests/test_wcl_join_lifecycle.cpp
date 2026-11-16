@@ -8,18 +8,18 @@ int main() {
     if (state.begin(101) || state.begin(99)) return 3;
     if (!state.accepts(100) || state.accepts(101)) return 4;
 
-    // Association must complete before a beacon can satisfy this join.
+    // A post-begin beacon may precede the association-complete event.
     if (state.finish(100, Ath10kWCLJoinLifecycle::kSucceeded)) return 5;
-    if (state.markFirstBeacon(100, true)) return 6;
-    if (!state.markAssociation(100, true)) return 7;
-    if (state.readyToComplete(100)) return 8;
-    if (state.markFirstBeacon(100, false)) return 9;
-    if (!state.markFirstBeacon(100, true)) return 10;
+    if (state.markFirstBeacon(100, true, false)) return 6;
+    if (state.markFirstBeacon(100, false, true)) return 7;
+    if (!state.markFirstBeacon(100, true, true)) return 8;
+    if (state.readyToComplete(100)) return 9;
+    if (!state.markAssociation(100, true)) return 10;
     if (state.readyToComplete(100)) return 11;
 
     // Authorization may arrive later; duplicates and wrong BSSIDs are ignored.
     if (state.markAssociation(100, true)) return 12;
-    if (state.markFirstBeacon(100, true)) return 13;
+    if (state.markFirstBeacon(100, true, true)) return 13;
     if (!state.markPortAuthorized(100)) return 14;
     if (!state.readyToComplete(100)) return 15;
     if (!state.finish(100, Ath10kWCLJoinLifecycle::kSucceeded)) return 16;
@@ -32,7 +32,7 @@ int main() {
     if (state.markFirstBeacon(100, true) || state.markPortAuthorized(100)) return 21;
     if (state.readyToComplete(101)) return 22;
     if (!state.markAssociation(101, true)) return 23;
-    if (!state.markFirstBeacon(101, true)) return 24;
+    if (!state.markFirstBeacon(101, true, true)) return 24;
     if (!state.markPortAuthorized(101)) return 25;
     if (!state.readyToComplete(101)) return 26;
     if (!state.finish(101, Ath10kWCLJoinLifecycle::kSucceeded)) return 27;
@@ -41,7 +41,7 @@ int main() {
     if (!state.begin(102)) return 28;
     if (!state.markAssociation(102, false)) return 29;
     if (state.markAssociation(102, true)) return 30;
-    if (state.markFirstBeacon(102, true)) return 31;
+    if (state.markFirstBeacon(102, true, true)) return 31;
     if (state.finish(102, Ath10kWCLJoinLifecycle::kTimedOut)) return 32;
     if (state.readyToComplete(102)) return 33;
     if (!state.finish(102, Ath10kWCLJoinLifecycle::kFailed)) return 34;
