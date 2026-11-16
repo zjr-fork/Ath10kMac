@@ -228,3 +228,23 @@ mutation. It should hold a generation and index, reset when a new scan
 generation becomes visible, return one immutable record per call, and return
 the framework's verified end-of-iteration status only after the final record.
 It must not retain a raw pointer into the mutable BSS cache across calls.
+
+## Safe scalar adapter added to the driver tree
+
+`src/kext/Ath10kAppleScanResult.hpp` now provides
+`ath10kFillAppleScanResultScalars()`. It accepts one copied
+`Ath10kNativeBSSRecord` and a caller-computed Apple channel-flags value. The
+adapter:
+
+- preserves the incoming `asr_ie_data` pointer without dereferencing it;
+- clears the result object, restores that pointer, and forces `asr_ie_len = 0`;
+- fills BSSID, SSID, channel, RSSI/noise, capabilities, beacon interval and rates;
+- clamps rates to the actual fixed Apple array capacity (15 on the audited x86_64
+  ABI) and SSID to the declared Apple field capacity;
+- leaves age and SNR zero because the native record does not carry reliable values.
+
+The compile-only Apple ABI probe now includes this adapter header, so the same
+local SDK check validates its field accesses and types. This is a deliberately
+conservative first implementation of the result conversion; it does not yet
+provide the per-interface iterator, WCL result publication, or scan completion
+notification. No macOS SDK compile has been run in this environment.
