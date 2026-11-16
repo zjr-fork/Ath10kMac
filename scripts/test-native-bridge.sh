@@ -40,7 +40,9 @@ fi
 "$TMP/test-native-join-observer"
 "$CXX" -isysroot "$SDK" -std=c++17 -Wall -Wextra -Werror "$ROOT/tests/test_native_scan_observer.cpp" -o "$TMP/test-native-scan-observer"
 "$TMP/test-native-scan-observer"
+"$CXX" -isysroot "$SDK" -std=c++17 -Wall -Wextra -Werror "$ROOT/tests/test_native_leave_observer.cpp" -o "$TMP/test-native-leave-observer"
+"$TMP/test-native-leave-observer"
 "$TMP/test-wcl-join-lifecycle"
 "$TMP/test-wcl-scan-lifecycle"
 make -C "$ROOT" check-native-scan-builder
-echo "Native bridge ABI, exact open-BSS Join matching, scan cursor, WCL result serializer/scan+join lifecycle/Join+Scan snapshot observers, and native WMI scan builder checks: PASS"
+echo "Native bridge ABI, exact open-BSS Join matching, scan cursor, WCL result serializer/scan+join lifecycle/Join+Scan+Leave snapshot observers, and native WMI scan builder checks: PASS"
