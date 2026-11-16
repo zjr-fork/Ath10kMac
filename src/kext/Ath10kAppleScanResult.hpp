@@ -2,6 +2,7 @@
 
 #include <IOKit/IOReturn.h>
 #include <string.h>
+#include <stdint.h>
 #include <IOKit/80211/apple80211_var.h>
 #include "../shared/Ath10kNativeBridge.h"
 
@@ -16,7 +17,7 @@
 static inline IOReturn ath10kFillAppleScanResultScalars(
     apple80211_scan_result *result,
     const Ath10kNativeBSSRecord *record,
-    UInt32 appleChannelFlags)
+    uint32_t appleChannelFlags)
 {
     if (!result || !record)
         return kIOReturnBadArgument;
@@ -34,22 +35,22 @@ static inline IOReturn ath10kFillAppleScanResultScalars(
     result->asr_rssi = record->rssi_dbm;
     result->asr_beacon_int = record->beacon_interval;
     result->asr_cap = record->capabilities;
-    for (UInt32 i = 0; i < sizeof(result->asr_bssid); ++i)
+    for (uint32_t i = 0; i < sizeof(result->asr_bssid); ++i)
         result->asr_bssid[i] = record->bssid[i];
 
-    UInt32 rateCount = record->rate_count;
-    const UInt32 maxRates =
+    uint32_t rateCount = record->rate_count;
+    const uint32_t maxRates =
         (UInt32)(sizeof(result->asr_rates) / sizeof(result->asr_rates[0]));
     if (rateCount > maxRates)
         rateCount = maxRates;
     for (UInt32 i = 0; i < rateCount; ++i)
         result->asr_rates[i] = record->rates[i];
-    result->asr_nrates = (UInt8)rateCount;
+    result->asr_nrates = (uint8_t)rateCount;
 
-    UInt32 ssidLength = record->ssid_length;
+    uint32_t ssidLength = record->ssid_length;
     if (ssidLength > sizeof(result->asr_ssid))
         ssidLength = sizeof(result->asr_ssid);
-    result->asr_ssid_len = (UInt8)ssidLength;
+    result->asr_ssid_len = (uint8_t)ssidLength;
     for (UInt32 i = 0; i < ssidLength; ++i)
         result->asr_ssid[i] = record->ssid[i];
 
