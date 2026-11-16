@@ -113,16 +113,6 @@ int main() {
     openBSS.ssid_length=0;
     if (!ath10kNativeOpenJoinMatchesBSS(&join,&openBSS)) return 27;
 
-    join.header.version=ATH10K_NATIVE_ABI_VERSION;
-    join.header.size=static_cast<uint16_t>(sizeof(join));
-    join.header.operation=ATH10K_NATIVE_OP_ASSOCIATE;
-    join.header.generation=1;
-    join.header.payload_bytes=sizeof(join)-sizeof(join.header);
-    join.scan_generation=7;
-    join.security_mode=ATH10K_NATIVE_SECURITY_OPEN;
-    join.ssid_length=3;
-    join.bssid[0]=0x02;join.bssid[5]=0x01;
-    join.ssid[0]='a';join.ssid[1]='p';join.ssid[2]='1';
     if (!ath10kNativeValidateJoinRequest(&join)) return 16;
     join.security_mode=ATH10K_NATIVE_SECURITY_WPA2_PSK;
     if (ath10kNativeValidateJoinRequest(&join)) return 17;
