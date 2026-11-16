@@ -100,6 +100,8 @@ def main() -> int:
             "// nicproxy_info_s is used only through pointers in these declarations.",
             "struct nicproxy_info_s;",
             "typedef struct nicproxy_info_s nicproxy_info_s;",
+            "// Sequoia InfraProtocol uses this opaque statistics record by pointer.",
+            "struct apple80211_chip_stats;",
             "// InfraInterface derives from SkywalkInterface; establish the base first.",
             '#include "IO80211SkywalkInterface.h"',
             '#include "IO80211InfraProtocol.h"',
