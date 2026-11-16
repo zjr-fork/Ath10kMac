@@ -76,6 +76,15 @@ typedef enum Ath10kNativeCipher {
     ATH10K_NATIVE_CIPHER_TKIP = 2
 } Ath10kNativeCipher;
 
+typedef enum Ath10kNativeLinkState {
+    ATH10K_NATIVE_LINK_IDLE = 0,
+    ATH10K_NATIVE_LINK_SCANNING = 1,
+    ATH10K_NATIVE_LINK_ASSOCIATING = 2,
+    ATH10K_NATIVE_LINK_CONNECTED = 3,
+    ATH10K_NATIVE_LINK_DISCONNECTING = 4,
+    ATH10K_NATIVE_LINK_FAILED = 5
+} Ath10kNativeLinkState;
+
 typedef enum Ath10kNativeScanResultState {
     ATH10K_NATIVE_SCAN_PENDING = 0,
     ATH10K_NATIVE_SCAN_SUCCEEDED = 1,
@@ -302,6 +311,7 @@ static inline int ath10kNativeValidateKeyRequest(const Ath10kNativeKeyRequest *r
 static_assert(sizeof(Ath10kNativeMessageHeader) == 20, "native ABI header size");
 static_assert(sizeof(Ath10kNativeSSID) == 33, "native ABI SSID size");
 static_assert(sizeof(Ath10kNativeScanStatus) == 16, "native scan status size");
+static_assert(sizeof(Ath10kNativeLinkSnapshot) == 88, "native link snapshot size");
 static_assert(offsetof(Ath10kNativeScanRequest, ssids) == 35, "native ABI scan SSID offset");
 static_assert(offsetof(Ath10kNativeScanRequest, channels) == 563, "native ABI scan channel offset");
 static_assert(sizeof(Ath10kNativeScanRequest) == 691, "native ABI scan request size");
@@ -314,6 +324,7 @@ static_assert(sizeof(Ath10kNativeLinkSnapshot) == 88, "native ABI link snapshot 
 _Static_assert(sizeof(Ath10kNativeMessageHeader) == 20, "native ABI header size");
 _Static_assert(sizeof(Ath10kNativeSSID) == 33, "native ABI SSID size");
 _Static_assert(sizeof(Ath10kNativeScanStatus) == 16, "native scan status size");
+_Static_assert(sizeof(Ath10kNativeLinkSnapshot) == 88, "native link snapshot size");
 _Static_assert(offsetof(Ath10kNativeScanRequest, ssids) == 35, "native ABI scan SSID offset");
 _Static_assert(offsetof(Ath10kNativeScanRequest, channels) == 563, "native ABI scan channel offset");
 _Static_assert(sizeof(Ath10kNativeScanRequest) == 691, "native ABI scan request size");
