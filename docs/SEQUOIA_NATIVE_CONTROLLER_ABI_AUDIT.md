@@ -61,6 +61,6 @@ The header contains WCL entry points including `setWCL_SCAN_REQ`, `setWCL_SCAN_A
 
 ## Next engineering gate
 
-Add a temporary compile-only probe for the 12 controller pure virtuals alongside the existing InfraProtocol probe. Compile both against the user's local Sequoia headers and current kernel SDK. Confirm both generated subclasses are concrete, then inspect local declarations for interface factory/registration, primary-interface access, WCL message lifetime and teardown callbacks. Only after that should the production controller/interface pair and lifecycle state machine be designed.
+A temporary compile-only generator and shell target for the 12 controller pure virtuals have now been added alongside the existing InfraProtocol probe. Their fixture test is wired into the Makefile, and the full milestone invokes both compile probes. They still need to be run against the user's local Sequoia headers and current kernel SDK. If both generated subclasses are concrete, inspect local declarations for interface factory/registration, primary-interface access, WCL message lifetime and teardown callbacks. Only after that should the production controller/interface pair and lifecycle state machine be designed.
 
 Passing compile probes is source-level compatibility evidence, not proof of runtime ABI or Wi-Fi operation.
