@@ -32,7 +32,7 @@ int main() {
     record.ssid_length = 0;
     if (ath10kBuildWCLScanResult(&record, output, sizeof(output)) != sizeof(output)) return 6;
     memcpy(&metadata, output, sizeof(metadata));
-    if (metadata.flags & ATH10K_WCL_BEACON_SSID_PRESENT) return 7;
+    if (!(metadata.flags & ATH10K_WCL_BEACON_SSID_PRESENT) || metadata.ssidLength != 0) return 7;
 
     record.ie_length = 2;
     record.ies[0] = 48; record.ies[1] = 10;
