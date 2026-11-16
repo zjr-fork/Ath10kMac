@@ -6,10 +6,12 @@ Target: Intel x86_64, macOS Sequoia 15.7+, QCA9377 PCI function `168c:0042`, Sam
 
 ## 1. Architectural boundary
 
-Use two independently versioned components:
+Keep two logical components in the same KEXT, but use one PCI service object rather than adding a second hardware-owning service:
 
 - **Ath10kCore** owns the PCI function, BAR/DMA, CE rings, firmware/board data, HTC, WMI, HTT, scan transactions, association state machine, RX/TX descriptors, and firmware key transactions.
-- **QcaAirportNative** owns the Sequoia `IO80211Controller` / `IO80211InfraProtocol` / WCL integration and the macOS-facing Skywalk interface. It must not duplicate PCI, firmware, or HTC/WMI ownership.
+- **Native Apple frontend** changes the PCI service superclass from `IOEthernetController` to Sequoia `IO80211Controller` (which itself derives from `IOEthernetController`) and adds a child `QcaAirportInfraInterface : IO80211InfraProtocol` for Apple80211/WCL/Skywalk methods. It must not duplicate PCI, firmware, or HTC/WMI ownership.
+
+This preserves the existing Ethernet-MSDU packet path while making the service a real IO80211 controller. The frontend owns interface registration and Apple control-plane translation; the core owns all radio transactions.
 
 The boundary is a narrow, versioned C ABI with fixed-width integers and caller-owned buffers. No IOKit C++ object, OSObject, mbuf, Skywalk object, STL type, exception, or compiler-dependent C++ layout crosses it. Every asynchronous request carries a monotonically increasing generation. Events from an older generation are discarded.
 
