@@ -1,0 +1,123 @@
+# Sequoia Apple scan result and completion mapping
+
+This note records the observable macOS 15 behavior at the pinned reference revision
+`laobamac/itlwm@7204c69d1bfa7f5cc0f7864e08fb03e55d0ec29e`. It is an ABI/behavior
+mapping only. No reference implementation code or third-party headers are copied into
+Ath10kMac.
+
+## Two distinct result surfaces
+
+The Sequoia reference exposes two related but distinct scan-result paths:
+
+1. **Apple80211 result getter**: `IO80211InfraProtocol::getSCAN_RESULT(apple80211_scan_result *)`
+   is an iterator over the controller's BSS tree. The reference keeps a
+   `fNextNodeToSend` cursor and a wrap/exhaustion flag, converts one BSS node into one
+   `apple80211_scan_result`, and advances the cursor. It reports an end-of-results
+   status after the final entry. The literal status value used by that reference must
+   not be copied as an ABI constant; resolve the correct status against the local
+   Sequoia SDK before implementing it.
+
+2. **WCL asynchronous event stream**: `setWCL_SCAN_REQ(apple80211ScanRequest *)`
+   starts a WCL scan, while scan results are published as WCL `ScanResult` messages
+   carrying a `BeaconMetadata` prefix followed by validated information elements.
+   Completion is a separate `ScanDone` message carrying an `IOReturn`. The WCL
+   abort entry point is `setWCL_SCAN_ABORT(void *)`.
+
+Do not conflate these paths. A successful WMI transaction is not by itself an
+Apple-visible scan completion, and a result getter returning end-of-iteration is not
+the asynchronous scan-completion notification.
+
+## Request admission and lifecycle observations
+
+At the pinned revision, WCL request and abort callbacks enter a command gate. The
+request path:
+
+- decodes and bounds-checks the Apple request before touching scan state;
+- requires the interface to be running;
+- rejects a concurrent scan, join, or background scan;
+- rejects AUTH/ASSOC states;
+- rejects an explicit channel list when no channel remains usable;
+- records a pending request and arms a 20-second watchdog;
+- distinguishes an already-running scan from a newly initiated scan, including a
+  case where an existing scan must not satisfy the new request's completion.
+
+The abort callback enters the same gate and terminates the pending WCL request with
+an aborted status. The completion path is guarded by the pending flag, cancels the
+watchdog, clears the requested flag, and posts exactly one terminal notification.
+The scan-done firmware/MLME event schedules completion processing rather than
+publishing completion inline from the event handler. A watchdog expiration is
+reported as timeout, not success.
+
+These observations support the following Ath10kMac rules:
+
+- Keep WCL request admission and state changes serialized on the interface command
+  gate; never block that gate while waiting for firmware.
+- Retain the device-generated scan generation for every accepted request.
+- Abort only the matching generation when available; otherwise abort the current
+  native request.
+- Do not notify Apple until the core reports a terminal state after the START/STOP
+  descriptor and HTC-credit ownership barriers have been satisfied.
+- Make completion idempotent. A late firmware event, timeout, abort, or interface
+  shutdown must not post a second completion for the same generation.
+- Reject or explicitly report busy/not-ready conditions; never silently broaden an
+  invalid restricted-channel request into a full-band scan.
+
+## BSS-to-Apple result conversion
+
+The reference's Apple80211 getter converts one BSS node at a time and fills the
+Apple result with the version, beacon interval, capabilities, channel and channel
+flags, signal/noise fields, BSSID, SSID, supported rates, and information elements.
+The WCL event path separately validates the complete IE stream and includes it after
+its fixed metadata prefix.
+
+Ath10kMac already has a bounded, generation-checked `Ath10kNativeBSSRecord` copy
+API. The native frontend should convert from that value object only; it must never
+retain a pointer into `_wmiBSS` or call into the mutable cache outside the WMI work
+loop. The record already contains BSSID, SSID, channel/frequency, estimated RSSI,
+capability bits, beacon interval, rates, and bounded raw IE bytes.
+
+Conversion requirements:
+
+- Validate every destination capacity and every source length before copying.
+- Preserve hidden SSIDs as zero-length SSIDs; do not synthesize a name.
+- Preserve the complete validated IE sequence when the Apple structure has capacity.
+  If the Apple result ABI only permits a smaller IE payload, truncate only at a
+  complete IE boundary and report the actual copied length.
+- Do not invent per-BSS noise. The current bridge marks RSSI as estimated and uses
+  zero for unavailable noise; preserve that distinction in the Apple conversion.
+- Map channel number to Apple channel flags using the pinned Sequoia SDK definitions,
+  not guessed band bits.
+- Set the result version and all length/count fields before returning the record.
+- Keep the iterator snapshot stable for the duration of one generation. Reset its
+  cursor when a new generation is accepted; reject stale generation access.
+
+## Implementation sequence
+
+1. Obtain the local macOS 15 SDK headers and verify the exact
+   `apple80211_scan_result` size, field offsets, IE capacity, channel flag constants,
+   and end-of-results return code. Do not vendor the headers.
+2. Add compile-time assertions for every Apple result field used by the converter.
+3. Add a small pure conversion helper that accepts an
+   `Ath10kNativeBSSRecord` and a caller-owned Apple result buffer. Unit-test bounds,
+   hidden SSID, rates, IE truncation, and unavailable noise.
+4. Add a generation-scoped result cursor to the native interface. The cursor must
+   iterate only a completed generation's stable BSS snapshot and must not outlive
+   interface stop/free.
+5. Wire `setWCL_SCAN_REQ` and `setWCL_SCAN_ABORT` through the command gate to the
+   existing device queue/abort APIs. Poll or receive terminal status without blocking
+   the gate.
+6. On terminal success, publish the result records in deterministic order and then
+   post one WCL `ScanDone` success. On abort, timeout, firmware failure, or shutdown,
+   post the matching terminal status exactly once and do not report success.
+7. Run bridge tests and the Sequoia SDK compile probe on macOS 15.7 before attempting
+   a hardware scan. Hardware validation remains required.
+
+## Explicitly unresolved
+
+- The exact local SDK layout and capacity of `apple80211_scan_result` have not yet
+  been compiler-verified in this repository.
+- The reference's literal end-of-iterator status is not treated as a public ABI
+  constant until confirmed in the local SDK.
+- The exact WCL message transport/consumer contract for result ordering and batch
+  sizing must be checked against the local Sequoia SDK/runtime before implementation.
+- No macOS build, kext load, scan, or hardware test is claimed by this document.
