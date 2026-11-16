@@ -7,6 +7,12 @@
 #include "../shared/Ath10kNativeBridge.h"
 
 /*
+ * Apple80211 structure version. The public ioctl ABI defines this as 1;
+ * apple80211_var.h does not itself export the macro.
+ */
+static constexpr uint32_t kAth10kApple80211Version = 1;
+
+/*
  * Safe scalar-only adapter for the Sequoia Apple80211 scan-result ABI.
  *
  * The SDK exposes asr_ie_data as a caller-owned void pointer but does not
@@ -26,8 +32,8 @@ static inline IOReturn ath10kFillAppleScanResultScalars(
     result->asr_ie_data = nullptr;
     result->asr_ie_len = 0;
 
-    result->version = APPLE80211_VERSION;
-    result->asr_channel.version = APPLE80211_VERSION;
+    result->version = kAth10kApple80211Version;
+    result->asr_channel.version = kAth10kApple80211Version;
     result->asr_channel.channel = record->channel;
     result->asr_channel.flags = appleChannelFlags;
     result->asr_noise = record->noise_dbm;
