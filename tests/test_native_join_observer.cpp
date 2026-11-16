@@ -62,6 +62,26 @@ int main() {
         !guarded.beaconSeen()) return 11;
 
     // Failed and cancelled operations terminate exactly once.
+    // A Join cannot be started from an already-connected baseline: otherwise
+    // an unrelated beacon on the existing link could satisfy the new request.
+    Ath10kNativeJoinObserver overlap;
+    auto connectedBaseline = baseline();
+    connectedBaseline.link_stage = ATH10K_JOIN_LINK_CONNECTED;
+    connectedBaseline.secure = 1;
+    connectedBaseline.port_authorized = 1;
+    if (overlap.begin(29, ap, true, connectedBaseline)) return 12;
+
+    // Once the core has entered the join transaction, an unexplained rollback
+    // to the pre-join Scan/Disabled stage is terminal rather than a silent hang.
+    Ath10kNativeJoinObserver rollback;
+    if (!rollback.begin(28, ap, false, baseline())) return 13;
+    snap = observation(ATH10K_JOIN_LINK_START, 7, 20, false, false, ap);
+    if (!rollback.observe(28, snap)) return 14;
+    snap = observation(ATH10K_JOIN_LINK_SCAN, 7, 20, false, false, ap);
+    if (!rollback.observe(28, snap) ||
+        rollback.terminal() != Ath10kWCLJoinLifecycle::kAborted ||
+        rollback.active()) return 15;
+
     Ath10kNativeJoinObserver failed;
     if (!failed.begin(30, ap, true, base)) return 12;
     snap = observation(ATH10K_JOIN_LINK_FAILED, 8, 20, true, false, ap);
