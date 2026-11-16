@@ -254,6 +254,7 @@ static inline int ath10kNativeDecodeAppleScanRequest(const void *buffer,
         if (out->channel_count >= ATH10K_NATIVE_MAX_SCAN_CHANNELS) return 0;
         out->channels[out->channel_count++] = (uint16_t)channel;
     }
+    if (channel_entries && !out->channel_count) return 0;
     return ath10kNativeValidateScanRequest(out);
 }
 
