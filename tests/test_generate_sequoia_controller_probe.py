@@ -77,6 +77,9 @@ def main() -> int:
         ]
         if subprocess.run(audited_command, capture_output=True).returncode:
             raise SystemExit("generator rejected the audited 12-method controller contract")
+        generated = output.read_text(encoding="utf-8")
+        if "sizeof(IO80211Controller) == 0x128" not in generated:
+            raise SystemExit("controller probe omitted the pinned base-size assertion")
         declarations[-1] = "virtual void * unexpectedLogger() = 0;"
         audited_header.write_text(
             "class IO80211Controller { public:\n"
