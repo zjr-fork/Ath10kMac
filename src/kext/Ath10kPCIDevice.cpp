@@ -2771,6 +2771,13 @@ IOReturn Ath10kPCIDevice::nativeJoinAction(OSObject *owner,void *input,void *,vo
     if(bssidMatches!=1)return kIOReturnNotFound;
     if(matches!=1 || !selected)return kIOReturnUnsupported;
 
+    // Complete all non-mutating preflight checks before seeding ConnectionState.
+    // An invalid firmware chain mask must not leave a partially initialized
+    // connection behind while the public operation reports NotReady.
+    UInt8 rfChains=0;
+    if(!Ath10k::wmiContiguousRFChainCount(self->_wmiInit.requestedChainMask,rfChains))
+        return kIOReturnNotReady;
+
     // Seed only the AP explicitly selected by macOS. selectOpenBSS below is
     // reused solely as the existing PHY/rate/regulatory validator; its BSSID
     // match cannot fall back to another cache entry.
@@ -2786,8 +2793,7 @@ IOReturn Ath10kPCIDevice::nativeJoinAction(OSObject *owner,void *input,void *,vo
     connection.disconnect=Ath10k::DisconnectStage::None;
     connection.firmwareHT=self->_wmi.htCapability;
     connection.firmwareVHT=self->_wmi.vhtCapability;
-    if(!Ath10k::wmiContiguousRFChainCount(self->_wmiInit.requestedChainMask,connection.rfChains))
-        return kIOReturnNotReady;
+    connection.rfChains=rfChains;
     connection.regulatory=self->_regulatory;
     // Match the capability snapshot used by serviceConnection() before
     // invoking the same PHY/rate/regulatory preflight. The later Scan-stage
