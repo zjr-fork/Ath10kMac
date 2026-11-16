@@ -2612,14 +2612,20 @@ const char *Ath10kPCIDevice::serviceWMIScan(UInt64 nowMs)
 {
     auto &state=_wmiScan;
     const bool fast=state.generation==0;
+    const bool nativeRequest=_nativeScanRequestValid;
     if (state.completed) return nullptr;
+    if(state.cancelRequested && !state.submitted && !state.txOwned) {
+        state.completed=true;state.status="scan-cancelled-before-submit";
+        _nativeScanRequestValid=false;
+        return nullptr;
+    }
     if (!state.attempted && (_connection.stats.step || _connection.maintenance.step || _connection.radio.step || _connection.radio.appliedPS))return nullptr;
     if (!state.attempted) {
         state.attempted=true;state.startedMs=nowMs;state.status="scan-prerequisite";
         if (!_wmiLive.active || !_runtimeActive || !_wmiScanChannels.completed || !_wmiScanChannels.txConsumed ||
             !_wmiInit.ready || !_wmi.rxOwned || !_runtimeCE1Armed || _dmaQuarantine ||
             !_htcWMIControl.connected || _htcWMIControl.uplinkPipe!=3 ||
-            _htcWMIControl.maxMessageSize<Ath10k::kWMIScanFrameBytes-8 || _wmi.credits.outstanding ||
+            _htcWMIControl.maxMessageSize<(nativeRequest?136u:Ath10k::kWMIScanFrameBytes-8) || _wmi.credits.outstanding ||
             !_wmiTxBuffer.allocated() || !_ceSrcRings[3].allocated()) return state.status;
         Ath10k::CESnapshot snap{};
         const UInt32 entries=Ath10k::kCEHostConfig[3].srcEntries;
@@ -2628,8 +2634,15 @@ const char *Ath10kPCIDevice::serviceWMIScan(UInt64 nowMs)
             snap.srcWriteIndex>=entries || snap.currentSrcRead!=snap.srcWriteIndex ||
             (!state.generation && snap.srcWriteIndex!=_wmiScanChannels.txNext) || !_ceSrcRings[3].syncFromDevice()) return state.status;
         state.status="scan-build";
-        if (!Ath10k::buildWMIScan(static_cast<UInt8 *>(_wmiTxBuffer.virtualAddress()),
-            static_cast<UInt32>(_wmiTxBuffer.length()),_htcWMIControl.endpoint,state.id,_connection.stage==Ath10k::LinkStage::Connected,&_regulatory,fast)) return state.status;
+        const bool built=nativeRequest
+            ? Ath10k::buildWMIScanRequest(static_cast<UInt8 *>(_wmiTxBuffer.virtualAddress()),
+                static_cast<UInt32>(_wmiTxBuffer.length()),_htcWMIControl.maxMessageSize,
+                _htcWMIControl.endpoint,state.id,_connection.stage==Ath10k::LinkStage::Connected,
+                &_regulatory,_nativeScanRequest)
+            : Ath10k::buildWMIScan(static_cast<UInt8 *>(_wmiTxBuffer.virtualAddress()),
+                static_cast<UInt32>(_wmiTxBuffer.length()),_htcWMIControl.endpoint,state.id,
+                _connection.stage==Ath10k::LinkStage::Connected,&_regulatory,fast);
+        if(!built)return state.status;
         const UInt32 frameBytes=8+Ath10k::htcReadLE16(static_cast<const UInt8 *>(_wmiTxBuffer.virtualAddress())+2);
         state.txSlot=snap.srcWriteIndex;state.txNext=Ath10k::ceRingNext(state.txSlot,entries);
         auto *ring=static_cast<Ath10k::CEDescriptor32 *>(_ceSrcRings[3].virtualAddress());
@@ -2647,10 +2660,19 @@ const char *Ath10kPCIDevice::serviceWMIScan(UInt64 nowMs)
         if (!_regs.write32(doorbell,state.txNext) || !_regs.read32(doorbell,back) || back!=state.txNext)
             return state.status;
         state.submitted=true;state.status="waiting-for-scan-events";
-        IOLog("Ath10kMac: WMI START_SCAN SUBMITTED id=0x%x request=0xa001 vdev=0 mode=%s channels=%u dwell=%u passive=yes sequence=9 bytes=%u credits=%u outstanding=%u\n",
-              state.id,fast?"initial-fast":"manual-full",Ath10k::regulatoryScanCountForMode(&_regulatory,fast),
-              fast?Ath10k::kWMIScanFastDwellMs:Ath10k::kWMIScanDwellMs,
-              Ath10k::htcReadLE16(static_cast<UInt8 *>(_wmiTxBuffer.virtualAddress())+2)+8,_wmi.credits.available,_wmi.credits.outstanding);
+        if(nativeRequest) {
+            const auto *frame=static_cast<const UInt8 *>(_wmiTxBuffer.virtualAddress());
+            IOLog("Ath10kMac: WMI START_SCAN SUBMITTED id=0x%x origin=native type=%s channels=%u ssids=%u bssid-filter=%s active-dwell=%u passive-dwell=%u bytes=%u\\n",
+                  state.id,_nativeScanRequest.scan_type==ATH10K_NATIVE_SCAN_ACTIVE?"active":"passive",
+                  Ath10k::htcReadLE32(frame+80),_nativeScanRequest.ssid_count,
+                  _nativeScanRequest.has_bssid?"yes":"no",Ath10k::htcReadLE32(frame+40),
+                  Ath10k::htcReadLE32(frame+44),frameBytes);
+        } else {
+            IOLog("Ath10kMac: WMI START_SCAN SUBMITTED id=0x%x request=0xa001 vdev=0 mode=%s channels=%u dwell=%u passive=yes sequence=9 bytes=%u credits=%u outstanding=%u\\n",
+                  state.id,fast?"initial-fast":"manual-full",Ath10k::regulatoryScanCountForMode(&_regulatory,fast),
+                  fast?Ath10k::kWMIScanFastDwellMs:Ath10k::kWMIScanDwellMs,
+                  frameBytes,_wmi.credits.available,_wmi.credits.outstanding);
+        }
     }
     if (!state.submitted) return state.status; // No retry after any failed attempt.
     state.elapsedMs=nowMs-state.startedMs;
@@ -2688,7 +2710,8 @@ const char *Ath10kPCIDevice::serviceWMIScan(UInt64 nowMs)
         return state.status;
     }
     if (state.txConsumed && state.creditReturned && (state.started || state.cancelRequested) && state.terminal && (!state.stopSubmitted || state.stopConsumed)) {
-        state.completed=true;state.status="scan-completed";
+        state.completed=true;state.status=state.cancelRequested?"scan-cancelled":"scan-completed";
+        _nativeScanRequestValid=false;
         // Success requires correlated STARTED and COMPLETED(reason=0), plus TX/credit.
         IOLog("Ath10kMac: WMI START_SCAN PASS id=0x%x mode=%s channels=%u dwell=%u started=%s completed=yes reason=%u tx-consumed=yes credit-returned=yes elapsed=%llu ms\n",
               state.id,fast?"initial-fast":"manual-full",Ath10k::regulatoryScanCountForMode(&_regulatory,fast),
