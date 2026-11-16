@@ -2725,10 +2725,11 @@ IOReturn Ath10kPCIDevice::nativeJoinAction(OSObject *owner,void *input,void *,vo
     }
 
     if(!self->_networkEnabled)return kIOReturnNotReady;
-    const auto *request=args.request;
-    if(!request || args.generation!=request->header.generation ||
-       !ath10kNativeValidateJoinRequest(request))return kIOReturnBadArgument;
-    if(!ath10kNativeGenerationIsNewer(request->header.generation,self->_nativeJoinGeneration))
+    const auto *requestPointer=args.request;
+    if(!requestPointer || args.generation!=requestPointer->header.generation ||
+       !ath10kNativeValidateJoinRequest(requestPointer))return kIOReturnBadArgument;
+    const auto &request=*requestPointer;
+    if(!ath10kNativeGenerationIsNewer(request.header.generation,self->_nativeJoinGeneration))
         return kIOReturnNotFound;
     // _nativeScanRequestValid is intentionally cleared when scan transport
     // reaches its terminal state; the retained request value plus nativeRequest
