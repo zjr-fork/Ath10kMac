@@ -156,7 +156,7 @@ static inline int ath10kNativeHeaderValid(const Ath10kNativeMessageHeader *h,
         h->version == ATH10K_NATIVE_ABI_VERSION &&
         h->operation == operation &&
         h->generation != 0 &&
-        h->size >= minimum_size &&
+        h->size == minimum_size &&
         h->size >= sizeof(Ath10kNativeMessageHeader) &&
         h->payload_bytes == (uint32_t)(h->size - sizeof(Ath10kNativeMessageHeader));
 }
