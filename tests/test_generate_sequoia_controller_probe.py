@@ -85,6 +85,18 @@ def main() -> int:
         )
         if subprocess.run(audited_command, capture_output=True).returncode == 0:
             raise SystemExit("generator accepted a changed method set with the same pure-virtual count")
+
+        # A pure-virtual reorder preserves the count and method set but changes
+        # vtable slots. The audited Sequoia contract must reject that drift too.
+        reordered = declarations.copy()
+        reordered[0], reordered[1] = reordered[1], reordered[0]
+        audited_header.write_text(
+            "class IO80211Controller { public:\\n"
+            + "\\n".join(reordered) + "\\n};\\n",
+            encoding="utf-8",
+        )
+        if subprocess.run(audited_command, capture_output=True).returncode == 0:
+            raise SystemExit("generator accepted reordered controller virtual slots")
     print("Sequoia controller abstractness generator fixture tests passed.")
     return 0
 
