@@ -21,7 +21,8 @@ public:
         : _generation(0), _pending(false), _terminal(kNone) {}
 
     static bool isNewerGeneration(uint32_t candidate, uint32_t current) {
-        return candidate && static_cast<int32_t>(candidate - current) > 0;
+        const uint32_t delta = candidate - current;
+        return candidate && delta != 0 && delta < 0x80000000u;
     }
 
     bool begin(uint32_t generation) {
