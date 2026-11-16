@@ -6,6 +6,7 @@ int main(void) {
     header.operation = ATH10K_NATIVE_OP_GET_LINK_SNAPSHOT;
     if (sizeof(header) != 20u) return 1;
     if (sizeof(Ath10kNativeLinkSnapshot) != 88u) return 2;
+    if (sizeof(Ath10kNativeScanStatus) != 16u) return 7;
     if (sizeof(Ath10kNativeBSSRecord) != 597u) return 3;
 
     Ath10kNativeScanRequest scan = {0};
