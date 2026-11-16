@@ -14,7 +14,8 @@ struct NativeScanQueueArgs {
     UInt32 *generationOut;
 };
 struct NativeBSSCopyArgs {
-    UInt32 generation,index,count;
+    UInt32 generation,index;
+    UInt32 *countOut;
     Ath10kNativeBSSRecord *record;
 };
 
@@ -2593,6 +2594,55 @@ IOReturn Ath10kPCIDevice::abortCurrentNativeScanRequest()
 {
     if(!_wmiWorkLoop || isInactive())return kIOReturnNotReady;
     return _wmiWorkLoop->runAction(nativeScanAction,this,nullptr,reinterpret_cast<void *>(1),nullptr);
+}
+
+IOReturn Ath10kPCIDevice::copyNativeBSSRecord(UInt32 generation,UInt32 index,
+                                                        Ath10kNativeBSSRecord *record,UInt32 *countOut)
+{
+    if(!generation || !record || !countOut || !_wmiWorkLoop || isInactive())
+        return kIOReturnBadArgument;
+    *countOut=0;
+    NativeBSSCopyArgs args{generation,index,countOut,record};
+    return _wmiWorkLoop->runAction(nativeBSSAction,this,&args,nullptr,nullptr);
+}
+
+IOReturn Ath10kPCIDevice::nativeBSSAction(OSObject *owner,void *input,void *,void *,void *)
+{
+    auto *self=OSDynamicCast(Ath10kPCIDevice,owner);
+    if(!self || !input)return kIOReturnBadArgument;
+    auto &args=*static_cast<NativeBSSCopyArgs *>(input);
+    if(!args.record || !args.countOut)return kIOReturnBadArgument;
+    if(!self->_wmiScan.completed)return kIOReturnNotReady;
+    if(self->_wmiScan.generation!=args.generation)return kIOReturnNotFound;
+    *args.countOut=self->_wmiBSS.count;
+    if(args.index>=self->_wmiBSS.count)return kIOReturnNotFound;
+
+    Ath10kNativeBSSRecord &out=*args.record;
+    UInt8 *raw=reinterpret_cast<UInt8 *>(&out);
+    for(UInt32 i=0;i<sizeof(out);++i)raw[i]=0;
+    const Ath10k::WMIBSS &b=self->_wmiBSS.entries[args.index];
+    for(UInt32 i=0;i<6;++i)out.bssid[i]=b.bssid[i];
+    out.ssid_length=b.ssidLength;
+    for(UInt32 i=0;i<b.ssidLength && i<ATH10K_NATIVE_MAX_SSID;++i)out.ssid[i]=b.ssid[i];
+    if(b.hidden)out.flags|=ATH10K_NATIVE_BSS_HIDDEN;
+    if(b.privacy)out.flags|=ATH10K_NATIVE_BSS_PRIVACY;
+    if(b.rsnPresent)out.flags|=ATH10K_NATIVE_BSS_HAS_RSN;
+    if(b.ratesValid)out.flags|=ATH10K_NATIVE_BSS_RATES_VALID;
+    out.flags|=ATH10K_NATIVE_BSS_RSSI_ESTIMATED;
+    out.channel=static_cast<UInt16>(b.rxChannel);
+    const UInt32 frequencyIndex=Ath10k::wmiScanFrequencyIndex(b.rxChannel);
+    out.frequency_mhz=static_cast<UInt16>(Ath10k::wmiScanFrequency(frequencyIndex));
+    const SInt32 estimate=static_cast<SInt32>(b.snr)-95;
+    out.rssi_dbm=static_cast<SInt8>(estimate<-127?-127:(estimate>0?0:estimate));
+    out.noise_dbm=0; // Per-BSS noise is not measured by this firmware event.
+    out.ie_length=b.ieLength>ATH10K_NATIVE_MAX_BSS_IE_BYTES
+        ? ATH10K_NATIVE_MAX_BSS_IE_BYTES:b.ieLength;
+    for(UInt32 i=0;i<out.ie_length;++i)out.ies[i]=b.ies[i];
+    out.capabilities=b.capabilities;
+    out.beacon_interval=b.beaconInterval;
+    out.rate_count=b.rateCount>sizeof(out.rates)?sizeof(out.rates):b.rateCount;
+    for(UInt32 i=0;i<out.rate_count;++i)out.rates[i]=b.rates[i];
+    return kIOReturnSuccess;
 }
 
 IOReturn Ath10kPCIDevice::nativeScanAction(OSObject *owner,void *input,void *abortFlag,void *,void *)
