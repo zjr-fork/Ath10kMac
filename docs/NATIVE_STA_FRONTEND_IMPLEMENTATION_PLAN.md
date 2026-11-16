@@ -77,67 +77,44 @@ association completion while holding the interface gate.
 - Link snapshot and capabilities value structures.
 - Existing WPA2/CCMP key installation and controlled-port authorization.
 
-## Native Join request gap discovered during source audit
+## Native Join request gap and current status
 
-The existing connection engine is not yet exposed as a native-framework-driven
-Join API. `prepareNetwork()` can seed connection state from driver personality
-properties (`Ath10kConnectSSID`, `Ath10kConnectBSSID` and power), then
-`Ath10kPCIDevice::serviceConnection()` waits for scan completion and calls
-`Ath10k::selectOpenBSS(s, _wmiBSS)`. This is a legacy configuration path, not
-an API that accepts the candidate selected by macOS in
-`setWCL_ASSOCIATE`; there is currently no symmetric
-`queueNativeJoinRequest()` entry point that copies and validates that
-framework-selected candidate and security profile.
+The initial source audit found that the connection engine only accepted
+personality-property SSID/BSSID values and automatically selected from the BSS
+cache. That blocker is now partially closed: the shared ABI defines a bounded
+pointer-free OPEN-only request, and the PCI core exposes
+`queueNativeJoinRequest()` / `abortNativeJoinRequest()` on the WMI work loop.
 
-This is a functional blocker, not just a missing WCL notification. Wiring
-`setWCL_ASSOCIATE` to the legacy personality-property path without first
-transferring the selected candidate could join the wrong AP or use the wrong
-security profile. The Join observer added earlier only observes completion
-facts; it does not initiate a connection.
+The new admission path requires the exact generation of a successful native
+scan, an idle station state, and one unambiguous BSS matching the requested
+BSSID and SSID. It rejects privacy-protected, RSN/WPA, IBSS, malformed-rate and
+ambiguous entries. It seeds the existing connection state with the selected AP;
+the legacy selector is then used only for regulatory, channel and PHY/rate
+validation, never as a fallback to another AP. The API has not yet been wired
+to `setWCL_ASSOCIATE`, and its kernel-side behavior has not yet been built or
+runtime-tested.
 
-A deeper audit of the current connection state confirms a second, more
-fundamental limitation: the existing configured-connect path only populates
-SSID, BSSID, local MAC and TX power, then enters `LinkStage::Scan`. The
-`ConnectionState::secure` flag defaults false, and no current production
-assignment was found that promotes it to true from a validated native security
-request. Consequently `selectOpenBSS()` rejects protected BSSes on this path;
-the later WPA2 key-install/controlled-port state machine is present, but its
-native credential/security-profile ingress is not yet implemented. Do not
-describe WPA2 as operational merely because key-installation code and
-authorization barriers exist. Native WPA2 requires a separate, audited
-credential-to-core integration and an end-to-end EAPOL/4-way-handshake test.
+The separate WPA2 limitation remains unchanged. The core still lacks a verified
+macOS credential/key-material ingress that drives the complete EAPOL/4-way
+handshake and controlled-port path. The existing key installation primitives
+do not establish operational WPA2. WPA2 remains rejected by the Join request
+validator and absent from advertised capability flags until that path is proven.
 
-As a consistency fix, `getNativeCapabilities()` no longer advertises the
-WPA2-PSK feature bit or CCMP/TKIP cipher flags until that native credential
-ingress exists and is verified end-to-end. HT/VHT and scan capabilities remain
-reported from runtime firmware capabilities.
+Remaining work:
+1. Wire the verified 15.7 WCL association callback to the pointer-free Join API,
+   after proving the opaque candidate buffer extent and selected-candidate
+   semantics; do not assume the pinned reference's decode bound is Apple's
+   allocation contract.
+2. Implement framework-facing Join completion/abort publication using the
+   existing generation-scoped observer, preserving exactly-once terminal
+   semantics and requiring association, selected-AP Beacon and controlled-port
+   authorization.
+3. Verify the Sequoia 15.7 key-material form, implement supported WPA2-PSK
+   credential ingress and secret wiping, then prove EAPOL/4-way handshake and
+   authorization end-to-end before advertising WPA2.
+4. Continue with native interface registration and Skywalk TX/RX ownership.
 
-Required next core work, after the Sequoia 15.7 candidate/key ABI is verified:
-
-1. Consume and enforce the new pointer-free, bounded Join request ABI. Its
-   first supported mode is OPEN only; WPA2 credential fields must not be added
-   until the Sequoia 15.7 key-material form is proven. Any future secret bytes
-   must be copied into driver-owned storage, wiped on every terminal/rollback
-   path, and never included in diagnostics or snapshots.
-2. Resolve the requested BSSID against a completed, generation-valid BSS
-   record; reject missing, duplicate/ambiguous, malformed or unsupported
-   candidates rather than falling back to another AP.
-3. Parse and validate the candidate's RSN/security information and the
-   framework's selected security profile together. Do not infer open/WPA2 mode
-   from SSID or BSSID alone, and do not treat a PMK as a passphrase.
-4. Seed the existing connection state machine from the validated selected BSS
-   and explicit security request. Preserve its current firmware command,
-   association, key-installation and controlled-port barriers; do not duplicate
-   those state machines in the frontend.
-5. Add generation-scoped queue/abort/status APIs on the same serialized core
-   work loop. Capture beacon/security baselines atomically with accepting the
-   request, and publish terminal status only after the existing teardown or
-   authorization barriers have completed.
-6. Keep the legacy automatic selection path isolated for existing internal
-   operation until the native path is independently tested; never let a native
-   request silently fall through to `selectOpenBSS()`.
-
-### Pointer-free native Join request and core admission
+## Pointer-free native Join request and core admission
 
 The shared ABI defines a fixed 64-byte `Ath10kNativeJoinRequest`. Its operation
 generation identifies the Join; `scan_generation` binds the selected AP to the
