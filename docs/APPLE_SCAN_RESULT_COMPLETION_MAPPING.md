@@ -194,3 +194,37 @@ is a prerequisite to implementing the result converter.
 - The exact WCL message transport/consumer contract for result ordering and batch
   sizing must be checked against the local Sequoia SDK/runtime before implementation.
 - No macOS build, kext load, scan, or hardware test is claimed by this document.
+
+## Result IE pointer ownership: reference implementation is not a capacity contract
+
+A second pass compared both Sequoia-facing implementations in the pinned reference:
+
+- The legacy Apple80211 command path obtains its result object from
+  `fNextNodeToSend->verb`, zeroes that object, assigns the RSN IE pointer on
+  pre-Monterey targets, and on newer targets copies into the pre-existing
+  `result->asr_ie_data` pointer. This shows that the legacy path relies on
+  per-node preallocated result storage, not on an inline IE array.
+- The WCL Skywalk getter instead receives an `apple80211_scan_result *sr`
+  argument and passes it to a converter. That converter calls
+  `memcpy(result->asr_ie_data, ..., MIN(result->asr_ie_len,
+  sizeof(result->asr_ie_data)))`. The local Sequoia header confirms
+  `asr_ie_data` is a `void *`; therefore `sizeof(result->asr_ie_data)`
+  is only the pointer width (8 bytes on x86_64), not the destination capacity.
+  The implementation does not establish who allocated that buffer or its
+  actual size. This expression is not a safe capacity check and must not be
+  replicated.
+
+Consequently the native frontend's initial `getSCAN_RESULT` implementation
+must populate only the scalar/fixed-array fields whose capacities are defined
+by `apple80211_scan_result` (including a rate count clamped to
+`APPLE80211_MAX_RATES`) and set `asr_ie_len = 0`. It must not dereference
+`asr_ie_data`, assign a pointer into the internal BSS cache, or advertise IE
+bytes until the macOS 15.7 caller's allocation/ownership contract and an
+explicit capacity source are established. This deliberately withholds scan IE
+payloads rather than risking an out-of-bounds write or a dangling pointer.
+
+The result iterator must also be per-interface and serialized with scan-cache
+mutation. It should hold a generation and index, reset when a new scan
+generation becomes visible, return one immutable record per call, and return
+the framework's verified end-of-iteration status only after the final record.
+It must not retain a raw pointer into the mutable BSS cache across calls.
