@@ -9,6 +9,7 @@
  * contracts only; transport and lifetime rules are specified separately.
  */
 
+#include <stddef.h>
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -149,19 +150,21 @@ typedef struct ATH10K_NATIVE_PACKED Ath10kNativeLinkSnapshot {
 #if defined(__cplusplus)
 static_assert(sizeof(Ath10kNativeMessageHeader) == 20, "native ABI header size");
 static_assert(sizeof(Ath10kNativeSSID) == 33, "native ABI SSID size");
-static_assert(offsetof(Ath10kNativeScanRequest, ssids) == 38, "native ABI scan SSID offset");
-static_assert(offsetof(Ath10kNativeScanRequest, channels) == 566, "native ABI scan channel offset");
+static_assert(offsetof(Ath10kNativeScanRequest, ssids) == 35, "native ABI scan SSID offset");
+static_assert(offsetof(Ath10kNativeScanRequest, channels) == 563, "native ABI scan channel offset");
+static_assert(sizeof(Ath10kNativeScanRequest) == 691, "native ABI scan request size");
 static_assert(sizeof(Ath10kNativeBSSRecord) == 560, "native ABI BSS record size");
 static_assert(sizeof(Ath10kNativeKeyRequest) == 70, "native ABI key request size");
-static_assert(sizeof(Ath10kNativeLinkSnapshot) == 66, "native ABI link snapshot size");
+static_assert(sizeof(Ath10kNativeLinkSnapshot) == 88, "native ABI link snapshot size");
 #else
 _Static_assert(sizeof(Ath10kNativeMessageHeader) == 20, "native ABI header size");
 _Static_assert(sizeof(Ath10kNativeSSID) == 33, "native ABI SSID size");
-_Static_assert(offsetof(Ath10kNativeScanRequest, ssids) == 38, "native ABI scan SSID offset");
-_Static_assert(offsetof(Ath10kNativeScanRequest, channels) == 566, "native ABI scan channel offset");
+_Static_assert(offsetof(Ath10kNativeScanRequest, ssids) == 35, "native ABI scan SSID offset");
+_Static_assert(offsetof(Ath10kNativeScanRequest, channels) == 563, "native ABI scan channel offset");
+_Static_assert(sizeof(Ath10kNativeScanRequest) == 691, "native ABI scan request size");
 _Static_assert(sizeof(Ath10kNativeBSSRecord) == 560, "native ABI BSS record size");
 _Static_assert(sizeof(Ath10kNativeKeyRequest) == 70, "native ABI key request size");
-_Static_assert(sizeof(Ath10kNativeLinkSnapshot) == 66, "native ABI link snapshot size");
+_Static_assert(sizeof(Ath10kNativeLinkSnapshot) == 88, "native ABI link snapshot size");
 #endif
 
 #ifdef __cplusplus
