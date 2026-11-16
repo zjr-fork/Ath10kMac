@@ -18,7 +18,10 @@ public:
             assert(p[0]==2 && p[1]==1 && p[5]==param+5);
             assert(Ath10k::htcReadLE16(p+2)==20 && Ath10k::htcReadLE16(p+12)==12);
             assert(Ath10k::htcReadLE16(p+14)==82 && Ath10k::wmiReadLE32(p+16)==0);
-            assert(Ath10k::wmiReadLE32(p+20)==param && Ath10k::wmiReadLE32(p+24)==3);
+            assert(Ath10k::wmiReadLE32(p+20)==param &&
+                   Ath10k::wmiReadLE32(p+24)==_wmiInit.requestedChainMask);
+            UInt8 chainCount=0;
+            assert(Ath10k::wmiContiguousRFChainCount(_wmiInit.requestedChainMask,chainCount));
             assert(_wmi.credits.outstanding==1 && _wmiRadio[param-1].txOwned);
             _wmiRadio[4].txNext=_wmiRadio[param-1].txNext;
             if(hold!=param) deliver(onCE2?2:1,{UInt8(onCE2?2:0),2,8,0,8,0,0,0,1,4,0,0,2,1,0,0});
