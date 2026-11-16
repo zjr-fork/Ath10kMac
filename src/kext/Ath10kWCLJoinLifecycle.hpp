@@ -31,8 +31,13 @@ public:
           _associationSucceeded(false), _firstBeacon(false),
           _portAuthorized(false), _terminal(kNone) {}
 
+    static bool isNewerGeneration(uint32_t candidate, uint32_t current) {
+        return candidate && static_cast<int32_t>(candidate - current) > 0;
+    }
+
     bool begin(uint32_t generation) {
-        if (!generation || _pending || generation == _generation)
+        if (!generation || _pending ||
+            (_generation && !isNewerGeneration(generation, _generation)))
             return false;
         _generation = generation;
         _pending = true;
@@ -59,7 +64,8 @@ public:
 
     // The caller must compare the received BSSID with the selected peer.
     bool markFirstBeacon(uint32_t generation, bool matchesSelectedBSSID) {
-        if (!matchesSelectedBSSID || !accepts(generation) || _firstBeacon)
+        if (!matchesSelectedBSSID || !accepts(generation) ||
+            !_associationSucceeded || _firstBeacon)
             return false;
         _firstBeacon = true;
         return true;
@@ -81,6 +87,9 @@ public:
         if (!accepts(generation) || terminal == kNone)
             return false;
         if (terminal == kSucceeded && !readyToComplete(generation))
+            return false;
+        if (_associationReported && !_associationSucceeded &&
+            terminal != kFailed)
             return false;
         _terminal = terminal;
         _pending = false;
