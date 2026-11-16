@@ -91,8 +91,8 @@ def main() -> int:
         reordered = declarations.copy()
         reordered[0], reordered[1] = reordered[1], reordered[0]
         audited_header.write_text(
-            "class IO80211Controller { public:\\n"
-            + "\\n".join(reordered) + "\\n};\\n",
+            "class IO80211Controller { public:\n"
+            + "\n".join(reordered) + "\n};\n",
             encoding="utf-8",
         )
         if subprocess.run(audited_command, capture_output=True).returncode == 0:
