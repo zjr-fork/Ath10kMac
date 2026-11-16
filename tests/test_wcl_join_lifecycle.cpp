@@ -12,24 +12,25 @@ int main() {
     if (state.finish(100, Ath10kWCLJoinLifecycle::kSucceeded)) return 5;
     if (!state.markAssociation(100, true)) return 6;
     if (state.readyToComplete(100)) return 7;
-    if (!state.markFirstBeacon(100)) return 8;
-    if (state.readyToComplete(100)) return 9;
+    if (state.markFirstBeacon(100, false)) return 8;
+    if (!state.markFirstBeacon(100, true)) return 9;
+    if (state.readyToComplete(100)) return 10;
 
     // Duplicate events are rejected and cannot change the state.
-    if (state.markAssociation(100, true)) return 10;
+    if (state.markAssociation(100, true)) return 11;
     if (state.markFirstBeacon(100)) return 11;
-    if (!state.markPortAuthorized(100)) return 12;
-    if (!state.readyToComplete(100)) return 13;
-    if (!state.finish(100, Ath10kWCLJoinLifecycle::kSucceeded)) return 14;
-    if (state.pending() || state.terminal() != Ath10kWCLJoinLifecycle::kSucceeded) return 15;
-    if (state.markPortAuthorized(100) || state.finish(100, Ath10kWCLJoinLifecycle::kFailed)) return 16;
+    if (!state.markPortAuthorized(100)) return 13;
+    if (!state.readyToComplete(100)) return 14;
+    if (!state.finish(100, Ath10kWCLJoinLifecycle::kSucceeded)) return 15;
+    if (state.pending() || state.terminal() != Ath10kWCLJoinLifecycle::kSucceeded) return 16;
+    if (state.markPortAuthorized(100) || state.finish(100, Ath10kWCLJoinLifecycle::kFailed)) return 17;
 
     // A later generation starts clean; old-generation callbacks are harmless.
     if (!state.begin(101)) return 17;
     if (state.accepts(100) || state.markFirstBeacon(100) || state.markPortAuthorized(100)) return 18;
     if (state.readyToComplete(101)) return 19;
     if (!state.markPortAuthorized(101)) return 20;
-    if (!state.markFirstBeacon(101)) return 21;
+    if (!state.markFirstBeacon(101, true)) return 21;
     if (!state.markAssociation(101, true)) return 22;
     if (!state.readyToComplete(101)) return 23;
     if (!state.finish(101, Ath10kWCLJoinLifecycle::kSucceeded)) return 24;
