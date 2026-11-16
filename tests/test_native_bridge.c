@@ -24,6 +24,11 @@ int main(void) {
         !ath10kNativeGenerationIsNewer(1u,0xffffffffu) ||
         ath10kNativeGenerationIsNewer(0x80000000u,0u)) return 21;
 
+    Ath10kNativeBSSRecord bss = {0};
+    bss.bssid[0]=0x02;bss.bssid[5]=0x01;
+    bss.ssid_length=3;bss.ssid[0]='a';bss.ssid[1]='p';bss.ssid[2]='1';
+    bss.capabilities=1;bss.beacon_interval=100;bss.rate_count=1;
+    bss.flags=ATH10K_NATIVE_BSS_RATES_VALID;
     Ath10kNativeJoinRequest join = {0};
     join.header.version = ATH10K_NATIVE_ABI_VERSION;
     join.header.size = (uint16_t)sizeof(join);
@@ -36,7 +41,15 @@ int main(void) {
     join.bssid[0] = 0x02;
     join.ssid[0] = 'a'; join.ssid[1] = 'p'; join.ssid[2] = '1';
     if (!ath10kNativeValidateJoinRequest(&join)) return 19;
+    if (!ath10kNativeOpenJoinMatchesBSS(&join,&bss)) return 22;
+    bss.flags |= ATH10K_NATIVE_BSS_PRIVACY;
+    if (ath10kNativeOpenJoinMatchesBSS(&join,&bss)) return 23;
+    bss.flags = ATH10K_NATIVE_BSS_RATES_VALID;
+    bss.capabilities = 2;
+    if (ath10kNativeOpenJoinMatchesBSS(&join,&bss)) return 24;
     join.security_mode = ATH10K_NATIVE_SECURITY_WPA2_PSK;
+    if (ath10kNativeOpenJoinMatchesBSS(&join,&bss)) return 25;
+    join.security_mode = ATH10K_NATIVE_SECURITY_OPEN;
     if (ath10kNativeValidateJoinRequest(&join)) return 20;
 
     Ath10kNativeScanRequest scan = {0};
