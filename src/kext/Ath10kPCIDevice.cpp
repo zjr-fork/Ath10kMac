@@ -21,7 +21,7 @@ enum class NativeJoinActionKind : UInt32 {
 struct NativeJoinActionArgs {
     NativeJoinActionKind kind;
     UInt32 generation;
-    const Ath10kNativeJoinRequest *request;
+    Ath10kNativeJoinRequest request;
 };
 struct NativeBSSCopyArgs {
     UInt32 generation,index;
@@ -2613,7 +2613,10 @@ IOReturn Ath10kPCIDevice::queueNativeJoinRequest(const Ath10kNativeJoinRequest *
 {
     if(!request || !ath10kNativeValidateJoinRequest(request))return kIOReturnBadArgument;
     if(!_wmiWorkLoop || isInactive())return kIOReturnNotReady;
-    NativeJoinActionArgs args{NativeJoinActionKind::kQueue,request->header.generation,request};
+    NativeJoinActionArgs args{};
+    args.kind=NativeJoinActionKind::kQueue;
+    args.generation=request->header.generation;
+    args.request=*request;
     return _wmiWorkLoop->runAction(nativeJoinAction,this,&args,nullptr,nullptr);
 }
 
@@ -2621,7 +2624,9 @@ IOReturn Ath10kPCIDevice::abortNativeJoinRequest(UInt32 generation)
 {
     if(!generation)return kIOReturnBadArgument;
     if(!_wmiWorkLoop || isInactive())return kIOReturnNotReady;
-    NativeJoinActionArgs args{NativeJoinActionKind::kAbort,generation,nullptr};
+    NativeJoinActionArgs args{};
+    args.kind=NativeJoinActionKind::kAbort;
+    args.generation=generation;
     return _wmiWorkLoop->runAction(nativeJoinAction,this,&args,nullptr,nullptr);
 }
 
@@ -2629,7 +2634,9 @@ IOReturn Ath10kPCIDevice::requestNativeLeave(UInt32 generation)
 {
     if(!generation)return kIOReturnBadArgument;
     if(!_wmiWorkLoop || isInactive())return kIOReturnNotReady;
-    NativeJoinActionArgs args{NativeJoinActionKind::kLeave,generation,nullptr};
+    NativeJoinActionArgs args{};
+    args.kind=NativeJoinActionKind::kLeave;
+    args.generation=generation;
     return _wmiWorkLoop->runAction(nativeJoinAction,this,&args,nullptr,nullptr);
 }
 
@@ -2725,10 +2732,9 @@ IOReturn Ath10kPCIDevice::nativeJoinAction(OSObject *owner,void *input,void *,vo
     }
 
     if(!self->_networkEnabled)return kIOReturnNotReady;
-    const auto *requestPointer=args.request;
-    if(!requestPointer || args.generation!=requestPointer->header.generation ||
-       !ath10kNativeValidateJoinRequest(requestPointer))return kIOReturnBadArgument;
-    const auto &request=*requestPointer;
+    const auto &request=args.request;
+    if(args.generation!=request.header.generation ||
+       !ath10kNativeValidateJoinRequest(&request))return kIOReturnBadArgument;
     if(!ath10kNativeGenerationIsNewer(request.header.generation,self->_nativeJoinGeneration))
         return kIOReturnNotFound;
     // _nativeScanRequestValid is intentionally cleared when scan transport
