@@ -83,58 +83,58 @@ int main() {
         rollback.active()) return 15;
 
     Ath10kNativeJoinObserver failed;
-    if (!failed.begin(30, ap, true, base)) return 12;
+    if (!failed.begin(30, ap, true, base)) return 27;
     snap = observation(ATH10K_JOIN_LINK_FAILED, 8, 20, true, false, ap);
     if (!failed.observe(30, snap) ||
         failed.terminal() != Ath10kWCLJoinLifecycle::kFailed ||
-        failed.active()) return 13;
+        failed.active()) return 28;
     Ath10kNativeJoinObserver aborted;
-    if (!aborted.begin(40, ap, false, base)) return 14;
+    if (!aborted.begin(40, ap, false, base)) return 29;
     snap = observation(ATH10K_JOIN_LINK_ASSOC, 8, 20, false, false, ap);
     snap.cancel_requested = 1;
     if (!aborted.observe(40, snap) ||
         aborted.terminal() != Ath10kWCLJoinLifecycle::kAborted ||
-        aborted.active()) return 15;
+        aborted.active()) return 30;
 
     // Serial wraparound is accepted; malformed snapshots and BSSIDs are rejected.
     Ath10kNativeJoinObserver wrap;
     base = baseline(0xffffffffu, 0xffffffffu);
-    if (!wrap.begin(50, ap, true, base)) return 16;
+    if (!wrap.begin(50, ap, true, base)) return 31;
     snap = observation(ATH10K_JOIN_LINK_ASSOC, 0, 0xffffffffu, true, false, ap);
-    if (!wrap.observe(50, snap) || !wrap.beaconSeen()) return 17;
+    if (!wrap.observe(50, snap) || !wrap.beaconSeen()) return 32;
     snap = observation(ATH10K_JOIN_LINK_CONNECTED, 0, 0, true, true, ap);
     if (!wrap.observe(50, snap) ||
-        wrap.terminal() != Ath10kWCLJoinLifecycle::kSucceeded) return 18;
+        wrap.terminal() != Ath10kWCLJoinLifecycle::kSucceeded) return 33;
 
     Ath10kNativeJoinObserver badStatus;
-    if (!badStatus.begin(41, ap, false, base)) return 19;
+    if (!badStatus.begin(41, ap, false, base)) return 34;
     snap = observation(ATH10K_JOIN_LINK_CONNECTED, 8, 20, false, true, ap);
     snap.association_status = 17;
     if (!badStatus.observe(41, snap) ||
-        badStatus.terminal() != Ath10kWCLJoinLifecycle::kFailed) return 20;
+        badStatus.terminal() != Ath10kWCLJoinLifecycle::kFailed) return 35;
     Ath10kNativeJoinObserver disconnected;
-    if (!disconnected.begin(42, ap, false, base)) return 21;
+    if (!disconnected.begin(42, ap, false, base)) return 36;
     snap = observation(ATH10K_JOIN_LINK_ASSOC, 8, 20, false, false, ap);
     snap.disconnect_stage = 1;
     if (!disconnected.observe(42, snap) ||
-        disconnected.terminal() != Ath10kWCLJoinLifecycle::kAborted) return 26;
+        disconnected.terminal() != Ath10kWCLJoinLifecycle::kAborted) return 37;
 
     Ath10kNativeJoinObserver timeout;
-    if (!timeout.begin(45, ap, false, base)) return 23;
+    if (!timeout.begin(45, ap, false, base)) return 38;
     if (timeout.abort(44) || !timeout.timeout(45) || timeout.active() ||
-        timeout.terminal() != Ath10kWCLJoinLifecycle::kTimedOut) return 24;
+        timeout.terminal() != Ath10kWCLJoinLifecycle::kTimedOut) return 39;
     Ath10kNativeJoinObserver explicitAbort;
-    if (!explicitAbort.begin(46, ap, false, base)) return 25;
+    if (!explicitAbort.begin(46, ap, false, base)) return 40;
     if (!explicitAbort.abort(46) || explicitAbort.active() ||
-        explicitAbort.terminal() != Ath10kWCLJoinLifecycle::kAborted) return 22;
+        explicitAbort.terminal() != Ath10kWCLJoinLifecycle::kAborted) return 41;
 
     Ath10kNativeJoinObserver invalid;
     const uint8_t multicast[6] = {0x01,0,0,0,0,1};
-    if (invalid.begin(60, multicast, false, baseline())) return 23;
+    if (invalid.begin(60, multicast, false, baseline())) return 42;
     base = baseline();
-    if (!invalid.begin(60, ap, false, base)) return 24;
+    if (!invalid.begin(60, ap, false, base)) return 43;
     snap = observation(ATH10K_JOIN_LINK_CONNECTED, 8, 20, false, true, ap);
     snap.reserved = 1;
-    if (invalid.observe(60, snap)) return 29;
+    if (invalid.observe(60, snap)) return 44;
     return 0;
 }
