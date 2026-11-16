@@ -2683,7 +2683,7 @@ IOReturn Ath10kPCIDevice::nativeScanAction(OSObject *owner,void *input,void *abo
         if(!self->_nativeScanRequestValid ||
            self->_nativeScanRequest.header.generation!=generation)
             return kIOReturnNotFound;
-        if(self->_wmiScan.completed)return kIOReturnSuccess;
+        if(self->_wmiScan.completed || self->_wmiScan.terminal)return kIOReturnSuccess;
         self->_wmiScan.cancelRequested=true;
         return kIOReturnSuccess;
     }
@@ -2839,7 +2839,15 @@ const char *Ath10kPCIDevice::serviceWMIScan(UInt64 nowMs)
         state.creditReturned=_wmi.credits.outstanding==0;
         if(state.stopConsumed && state.creditReturned)state.txOwned=false;
     }
-    if (state.failed) {state.status="scan-firmware-failed";return state.status;}
+    if (state.failed) {
+        state.status="scan-firmware-failed";
+        if(state.txConsumed && state.creditReturned && state.terminal &&
+           (!state.stopSubmitted || state.stopConsumed)) {
+            state.completed=true;
+            _nativeScanRequestValid=false;
+        }
+        return state.status;
+    }
     if (state.elapsedMs>=Ath10k::kWMIScanHostMs && !state.timedOut) {
         state.timedOut=true;
         if(!state.terminal)state.cancelRequested=true;
