@@ -197,6 +197,16 @@ inline bool wmiABICompatible(const UInt32 *abi) {
     return abi[0] == kWMIHostABI[0] && abi[2] == kWMIHostABI[2] &&
            abi[3] == kWMIHostABI[3] && abi[4] == 0 && abi[5] == 0;
 }
+// WMI_INIT emits a contiguous low-bit TX/RX chain mask. Do not treat an
+// arbitrary non-one mask as two chains: zero, sparse or wider masks indicate
+// an ABI/configuration mismatch and must fail closed before PHY negotiation.
+inline bool wmiContiguousRFChainCount(UInt32 mask, UInt8 &count) {
+    if (mask == 1u) { count = 1; return true; }
+    if (mask == 3u) { count = 2; return true; }
+    count = 0;
+    return false;
+}
+
 struct WMIInitState {
     bool attempted = false, txOwned = false, submitted = false, txConsumed = false;
     bool ready = false, creditReturned = false, completed = false;
