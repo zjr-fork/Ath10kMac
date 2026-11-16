@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 
-EXPECTED_CONTROLLER_METHODS = {
+EXPECTED_CONTROLLER_METHODS = (
     "isCommandProhibited",
     "handleCardSpecific",
     "getDRIVER_VERSION",
@@ -21,7 +21,7 @@ EXPECTED_CONTROLLER_METHODS = {
     "setGET_DEBUG_INFO",
     "getLogger",
     "getFaultReporterFromDriver",
-}
+)
 
 
 def strip_comments(source: str) -> str:
@@ -88,12 +88,13 @@ def main() -> int:
             rendered.append(stub_for(declaration))
         if len(set(names)) != len(names):
             raise ValueError("duplicate pure-virtual method names; refusing ambiguous probe")
-        if args.expected == 12 and set(names) != EXPECTED_CONTROLLER_METHODS:
-            missing = sorted(EXPECTED_CONTROLLER_METHODS - set(names))
-            unexpected = sorted(set(names) - EXPECTED_CONTROLLER_METHODS)
+        if args.expected == 12 and tuple(names) != EXPECTED_CONTROLLER_METHODS:
+            first = next((i for i, pair in enumerate(zip(names, EXPECTED_CONTROLLER_METHODS))
+                          if pair[0] != pair[1]), min(len(names), len(EXPECTED_CONTROLLER_METHODS)))
             raise ValueError(
-                "IO80211Controller pure-virtual method set differs from the audited "
-                f"Sequoia contract; missing={missing}, unexpected={unexpected}"
+                "IO80211Controller pure-virtual method order differs from the audited "
+                f"Sequoia ABI at slot {first}: actual={names[first:first + 1]}, "
+                f"expected={list(EXPECTED_CONTROLLER_METHODS[first:first + 1])}"
             )
         output = [
             "// Generated locally from caller-supplied Sequoia headers; do not commit.",
