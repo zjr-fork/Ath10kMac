@@ -4,7 +4,6 @@ static_assert(Ath10k::kWMIScanChannelCount > 0, "QCA9377 scan plan must not be e
 
 void nativeScanBuilderCompileCheck() {
     UInt8 frame[1024]{};
-    UInt8 sourceMAC[6]={0x02,0x11,0x22,0x33,0x44,0x55};
     Ath10kNativeScanRequest request{};
     request.header.version=ATH10K_NATIVE_ABI_VERSION;
     request.header.size=static_cast<UInt16>(sizeof(request));
@@ -18,7 +17,7 @@ void nativeScanBuilderCompileCheck() {
 
     Ath10k::RegulatoryPolicy policy{};
     (void)Ath10k::buildWMIScanRequest(frame,sizeof(frame),1016,1,0xa037,false,
-                                      &policy,sourceMAC,request);
+                                      &policy,request);
     request.scan_type=ATH10K_NATIVE_SCAN_ACTIVE;
     request.ssid_count=1;
     request.ssids[0].length=4;
