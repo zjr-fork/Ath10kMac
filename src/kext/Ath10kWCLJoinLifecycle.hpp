@@ -27,14 +27,16 @@ public:
     };
 
     Ath10kWCLJoinLifecycle()
-        : _generation(0), _pending(false), _associationSucceeded(false),
-          _firstBeacon(false), _portAuthorized(false), _terminal(kNone) {}
+        : _generation(0), _pending(false), _associationReported(false),
+          _associationSucceeded(false), _firstBeacon(false), _portAuthorized(false), _terminal(kNone) {}
 
     bool begin(uint32_t generation) {
         if (!generation || _pending || generation == _generation)
             return false;
         _generation = generation;
         _pending = true;
+        _associationReported = false;
+        _associationReported = false;
         _associationSucceeded = false;
         _firstBeacon = false;
         _portAuthorized = false;
@@ -48,11 +50,10 @@ public:
     }
 
     bool markAssociation(uint32_t generation, bool succeeded) {
-        if (!accepts(generation) || _associationSucceeded)
+        if (!accepts(generation) || _associationReported)
             return false;
-        if (!succeeded)
-            return false;
-        _associationSucceeded = true;
+        _associationReported = true;
+        _associationSucceeded = succeeded;
         return true;
     }
 
@@ -104,6 +105,7 @@ public:
 private:
     uint32_t _generation;
     bool _pending;
+    bool _associationReported;
     bool _associationSucceeded;
     bool _firstBeacon;
     bool _portAuthorized;
