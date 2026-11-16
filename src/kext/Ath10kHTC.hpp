@@ -58,6 +58,14 @@ inline UInt16 htcReadLE16(const UInt8 *p)
     return static_cast<UInt16>(p[0] | (static_cast<UInt16>(p[1]) << 8));
 }
 
+inline UInt32 htcReadLE32(const UInt8 *p)
+{
+    return static_cast<UInt32>(p[0]) |
+           (static_cast<UInt32>(p[1]) << 8) |
+           (static_cast<UInt32>(p[2]) << 16) |
+           (static_cast<UInt32>(p[3]) << 24);
+}
+
 inline void htcWriteLE16(UInt8 *p, UInt16 value)
 {
     p[0] = static_cast<UInt8>(value & 0xffu);
