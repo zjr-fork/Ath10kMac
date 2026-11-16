@@ -75,3 +75,19 @@ methods while leaving the count unchanged. The ordered checks reject those cases
 the generated concrete subclass is compiled. This is still not a complete vtable/layout
 proof: inherited non-pure virtuals, compiler ABI details, object size, and runtime
 framework expectations remain separate gates.
+
+
+## Controller/interface relationship confirmed by declarations
+
+The pinned controller header exposes the following non-pure framework entry points:
+
+- `getPrimarySkywalkInterface()` returns an `IO80211SkywalkInterface *` for the primary interface.
+- `attachInterface(OSObject *, IOService *)` and `detachInterface(OSObject *, bool)` are controller-side interface lifecycle hooks.
+- `postMessage(IO80211SkywalkInterface *, unsigned int, void *, unsigned long, bool)` is controller-side WCL message publication.
+- The controller itself overrides the ordinary `IOEthernetController` service lifecycle (`init`, `start`, `stop`, `free`).
+
+These declarations establish where the framework-facing relationship lives, but do **not** establish who allocates the primary interface, whether the driver must call `attachInterface`, what the `OSObject *` argument represents, or when detach completes relative to provider stop/free. The implementation must not guess those semantics or manually allocate a second primary interface based only on the accessor.
+
+The same header pins `sizeof(IO80211Controller) == 0x128`; the Skywalk and InfraProtocol headers pin `0x118` and `0x120` respectively. These are reference-header assertions, not proof that a subclass compiled against a different local point release has matching member offsets. The local Sequoia compile probe must check these sizes directly, and runtime registration still needs validation on 15.7.
+
+**Integration rule:** treat the controller and primary infra interface as two framework-managed objects with distinct lifetimes. Before implementing either production class, trace the local header/API contract for primary-interface creation, attachment, start ordering, stop ordering, and detach completion. Keep the PCI device/core as the hardware provider; do not let the interface own or free the PCI device's DMA/WMI state.
