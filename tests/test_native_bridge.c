@@ -49,6 +49,10 @@ int main(void) {
     if (ath10kNativeOpenJoinMatchesBSS(&join,&bss)) return 24;
     join.security_mode = ATH10K_NATIVE_SECURITY_WPA2_PSK;
     if (ath10kNativeOpenJoinMatchesBSS(&join,&bss)) return 25;
+    bss.capabilities=1;bss.rate_count=33;
+    if (ath10kNativeOpenJoinMatchesBSS(&join,&bss)) return 26;
+    bss.rate_count=1;bss.ssid_length=33;
+    if (ath10kNativeOpenJoinMatchesBSS(&join,&bss)) return 27;
     join.security_mode = ATH10K_NATIVE_SECURITY_OPEN;
     if (ath10kNativeValidateJoinRequest(&join)) return 20;
 
