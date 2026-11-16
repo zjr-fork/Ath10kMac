@@ -20,13 +20,16 @@ int main() {
     if (scan.header.size != 691u) return 1;
     if (offsetof(Ath10kNativeScanRequest, channels) != 563u) return 2;
     if (!ath10kNativeValidateScanRequest(&scan)) return 3;
-    scan.ssids[0].length = 33;
+    scan.header.size++;
     if (ath10kNativeValidateScanRequest(&scan)) return 4;
+    scan.header.size--;
+    scan.ssids[0].length = 33;
+    if (ath10kNativeValidateScanRequest(&scan)) return 5;
     scan.ssids[0].length = 3;
     scan.active_dwell_ms = 20;
-    if (ath10kNativeValidateScanRequest(&scan)) return 5;
+    if (ath10kNativeValidateScanRequest(&scan)) return 6;
     scan.active_dwell_ms = 200;
-    if (!ath10kNativeValidateScanRequest(&scan)) return 6;
+    if (!ath10kNativeValidateScanRequest(&scan)) return 7;
 
     Ath10kNativeKeyRequest key{};
     key.header.version = ATH10K_NATIVE_ABI_VERSION;
@@ -37,9 +40,9 @@ int main() {
     key.key_type = ATH10K_NATIVE_KEY_PAIRWISE;
     key.cipher = ATH10K_NATIVE_CIPHER_CCMP_128;
     key.key_length = 16;
-    if (sizeof(key) != 70u || !ath10kNativeValidateKeyRequest(&key)) return 7;
+    if (sizeof(key) != 70u || !ath10kNativeValidateKeyRequest(&key)) return 8;
     key.cipher = ATH10K_NATIVE_CIPHER_TKIP;
     key.key_length = 32;
-    if (ath10kNativeValidateKeyRequest(&key)) return 8;
+    if (ath10kNativeValidateKeyRequest(&key)) return 9;
     return 0;
 }
