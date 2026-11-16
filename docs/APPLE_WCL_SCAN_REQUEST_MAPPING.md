@@ -42,4 +42,4 @@ The WCL adapter should call `queueNativeScanRequest()` after decoding. Its abort
 
 ## Result path still required
 
-The current `WMIBSS` cache already contains BSSID, raw SSID bytes, channel, SNR, capability bits, beacon interval, supported rates and parsed RSN data. The Apple `getSCAN_RESULT` adapter still needs a stable snapshot iterator and a carefully bounded conversion to `apple80211_scan_result`. RSSI must use the driver's documented SNR/noise-floor conversion; never invent per-BSS noise or copy mutable cache pointers into an Apple result.
+The `WMIBSS` cache now retains bounded raw IE bytes in addition to BSSID, raw SSID, channel, SNR, capability bits, beacon interval, supported rates and parsed RSN data. `copyNativeBSSRecord()` exports one generation-checked record under the WMI work-loop gate; the frontend never receives a pointer into the mutable cache. The Apple `getSCAN_RESULT` iterator and completion notification still need implementation. RSSI is explicitly marked as an estimate using SNR minus the documented -95 dBm noise-floor convention; per-BSS noise is reported unavailable rather than invented.
