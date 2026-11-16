@@ -4,6 +4,18 @@ ROOT=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
 TMP=$(mktemp -d "${TMPDIR:-/tmp}/ath10k-native-abi.XXXXXX")
 trap 'rm -rf "$TMP"' EXIT HUP INT TERM
 
+run_test() {
+    name="$1"
+    shift
+    if "$@"; then
+        echo "PASS: $name"
+    else
+        status=$?
+        echo "FAIL: $name (exit $status)" >&2
+        return "$status"
+    fi
+}
+
 CXX=$(xcrun --sdk macosx --find clang++)
 CC=$(xcrun --sdk macosx --find clang)
 SDK=$(xcrun --sdk macosx --show-sdk-path)
