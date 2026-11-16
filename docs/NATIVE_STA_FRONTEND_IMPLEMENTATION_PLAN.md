@@ -326,3 +326,40 @@ while that same generation remains active.
 No production callback should be wired until its signature and completion
 contract is established. The compile probes verify base-class abstractness and
 pinned base sizes; they do not verify these runtime semantics.
+
+## Sequoia 15 message entry-point distinction (source audit)
+
+The pinned Sequoia 15 reference headers expose two different `postMessage`
+entry points with different owners and signatures:
+
+- `IO80211Controller::postMessage(IO80211SkywalkInterface*, unsigned int,
+  void*, unsigned long, bool)` returns `IOReturn`.
+- `IO80211SkywalkInterface::postMessage(unsigned int, void*, unsigned long,
+  bool)` returns `void`.
+
+They are overloads on different framework objects, not interchangeable
+wrappers. A future publisher must select the interface/controller entry point
+from the actual framework contract and must not infer payload ownership,
+copying, or completion semantics from the method name or return type.
+
+The pinned Sequoia 15 reference's controller-side event forwarding calls the
+four-argument interface overload for several ordinary link/country events.
+Its non-WCL scan timer path posts `APPLE80211_M_SCAN_DONE` with a four-byte
+local payload, while its WCL scan path calls a separate
+`completeWCLScan()` helper. This establishes that the reference has distinct
+legacy and WCL scan-completion paths; it does not establish the exact WCL
+result/done payload contract for Ath10kMac.
+
+The same header declares
+`setWCL_LEAVE_NETWORK(apple80211_leave_network*)` and
+`setWCL_JOIN_ABORT(void*)`. These declarations confirm the callback
+spellings/types in the pinned Sequoia reference only. They do not establish
+the 15.7 callback's buffer extent, completion event identifier, payload
+lifetime, or whether a Leave completion must be sent through controller or
+interface `postMessage`.
+
+Implementation rule: do not add a production LeaveComplete or ScanDone
+publisher until the selected 15.7 target's message identifier, payload shape,
+receiver, synchronous-copy behavior, and ordering have independent evidence.
+The current Leave observer remains a core-state gate only; it is not evidence
+that a particular WCL completion message has been identified.
