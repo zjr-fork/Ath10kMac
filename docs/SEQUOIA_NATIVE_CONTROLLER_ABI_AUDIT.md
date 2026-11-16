@@ -118,3 +118,33 @@ design must therefore avoid constructor-time assumptions, duplicate primary
 interface allocation, and cross-object `free()` ownership. These questions
 remain a hard stop before production lifecycle code, not details to fill with
 speculative stubs.
+
+## Reference implementation lifecycle evidence (not copied)
+
+The pinned `itlwm` Sequoia implementation was also inspected at the call-site level
+(`AirportItlwmV2.cpp`, revision `7204c69d1bfa7f5cc0f7864e08fb03e55d0ec29e`).
+It demonstrates one concrete arrangement: the PCI-backed controller creates a
+separate `IO80211InfraProtocol`-derived interface during controller start; the
+interface is initialized with the controller as provider, attached to that
+provider, attached through the controller's `attachInterface` hook, separately
+passed through the legacy `IONetworkController::attachInterface` path, then
+registered and started. Its teardown stops the WCL side, stops the controller
+service, detaches the interface synchronously, and releases the interface object.
+
+This resolves an important architectural question: a separate primary infra
+interface object is compatible with the controller-as-PCI-provider model; a
+second PCI service/controller is not required by this reference arrangement.
+For Ath10kMac, retain one PCI-backed native controller owning the existing
+hardware core, plus one separately allocated infra interface object whose
+callbacks delegate into the core through a narrow lifetime-checked bridge. The
+interface must not own the PCI device's DMA/WMI resources. Implement a staged
+start/rollback/stop state machine so every successfully acquired resource and
+attachment has exactly one reverse-order cleanup path.
+
+The observed sequence is evidence from one GPL-2.0-only reference implementation,
+not a contract supplied by Apple's declarations. It is used here only to guide
+architecture and lifecycle questions; no implementation text is copied. Before
+production integration, verify which legacy `IONetworkController` attachment
+steps are still required for the exact macOS 15.7 SDK and whether the local
+headers expose the same overloads. Do not assume the reference implementation's
+registration internals or private fields are safe to reproduce.
