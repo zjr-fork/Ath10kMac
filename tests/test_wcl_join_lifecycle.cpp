@@ -60,8 +60,9 @@ int main() {
     if (!state.begin(1)) return 42;
 
     state.reset();
-    if (state.pending() || state.generation() ||
+    if (state.pending() || state.generation() != 1 ||
         state.terminal() != Ath10kWCLJoinLifecycle::kNone) return 43;
-    if (state.accepts(1)) return 44;
+    if (state.accepts(1) || state.begin(1)) return 44;
+    if (!state.begin(2)) return 45;
     return 0;
 }
