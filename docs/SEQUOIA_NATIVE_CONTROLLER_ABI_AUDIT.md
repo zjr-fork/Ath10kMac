@@ -91,3 +91,30 @@ These declarations establish where the framework-facing relationship lives, but 
 The same header pins `sizeof(IO80211Controller) == 0x128`; the Skywalk and InfraProtocol headers pin `0x118` and `0x120` respectively. These are reference-header assertions, not proof that a subclass compiled against a different local point release has matching member offsets. The local Sequoia compile probe must check these sizes directly, and runtime registration still needs validation on 15.7.
 
 **Integration rule:** treat the controller and primary infra interface as two framework-managed objects with distinct lifetimes. Before implementing either production class, trace the local header/API contract for primary-interface creation, attachment, start ordering, stop ordering, and detach completion. Keep the PCI device/core as the hardware provider; do not let the interface own or free the PCI device's DMA/WMI state.
+
+## Lifecycle surface cross-check
+
+A second pass over the pinned declarations confirms that lifecycle is exposed on
+both sides of the relationship, not only on the controller:
+
+- `IO80211Controller` overrides `init(OSDictionary*)`, `start(IOService*)`,
+  `stop(IOService*)` and `free()`. It also exposes
+  `getPrimarySkywalkInterface()`, `attachInterface(OSObject*, IOService*)`
+  and `detachInterface(OSObject*, bool)`.
+- `IO80211InfraInterface` overrides `init()`, `start(IOService*)`,
+  `stop(IOService*)` and `free()`. It also overrides the
+  four-argument interface-side `postMessage(unsigned int, void*, unsigned long, bool)`.
+- Its `IO80211SkywalkInterface` base declares `init(IOService*, ether_addr*)`
+  and the pure-virtual `setMacAddress(ether_addr&)`. The controller's
+  five-argument `postMessage(IO80211SkywalkInterface*, unsigned int, void*, unsigned long, bool)`
+  is a distinct overload; do not conflate the two publication paths.
+
+This establishes that interface initialization/start/stop/free are first-class
+framework lifecycle callbacks and that the interface has its own provider/MAC
+initialization surface. It still does not tell us who invokes each initializer,
+whether the controller allocates the interface, how `attachInterface`'s two
+arguments are interpreted, or whether detach is synchronous. The production
+design must therefore avoid constructor-time assumptions, duplicate primary
+interface allocation, and cross-object `free()` ownership. These questions
+remain a hard stop before production lifecycle code, not details to fill with
+speculative stubs.
