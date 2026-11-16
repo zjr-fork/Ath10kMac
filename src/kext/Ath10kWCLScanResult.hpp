@@ -32,6 +32,8 @@ static_assert(offsetof(Ath10kWCLBeaconMetadata, rssi) == 48, "WCL RSSI offset");
 static_assert(offsetof(Ath10kWCLBeaconMetadata, flags) == 60, "WCL flags offset");
 
 enum : uint32_t {
+    ATH10K_WCL_MESSAGE_SCAN_RESULT = 201,
+    ATH10K_WCL_MESSAGE_SCAN_DONE = 237,
     ATH10K_WCL_BEACON_SSID_PRESENT = 1u << 1,
     ATH10K_WCL_BEACON_RSSI_VALID = 1u << 14
 };
@@ -78,7 +80,8 @@ inline uint32_t ath10kBuildWCLScanResult(const Ath10kNativeBSSRecord *record,
     metadata.noise = record->noise_dbm;
     metadata.interval = record->beacon_interval;
     metadata.capability = record->capabilities;
-    if (record->ssid_length) metadata.flags |= ATH10K_WCL_BEACON_SSID_PRESENT;
+    /* The Sequoia WCL publisher sets SSIDPresent even for hidden SSIDs. */
+    metadata.flags |= ATH10K_WCL_BEACON_SSID_PRESENT;
     if (record->flags & ATH10K_NATIVE_BSS_RSSI_ESTIMATED)
         metadata.flags |= ATH10K_WCL_BEACON_RSSI_VALID;
 
