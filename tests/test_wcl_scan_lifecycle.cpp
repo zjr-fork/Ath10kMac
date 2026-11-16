@@ -28,5 +28,6 @@ int main() {
     if (!wrap.begin(0xffffffffu)) return 20;
     if (!wrap.finish(0xffffffffu, Ath10kWCLScanLifecycle::kAborted)) return 21;
     if (!wrap.begin(1)) return 22;
+    if (wrap.begin(0x80000001u)) return 23;
     return 0;
 }
