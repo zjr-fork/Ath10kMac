@@ -2614,6 +2614,12 @@ IOReturn Ath10kPCIDevice::abortNativeJoinRequest(UInt32 generation)
     return _wmiWorkLoop->runAction(nativeJoinAction,this,&generation,reinterpret_cast<void *>(1),nullptr);
 }
 
+IOReturn Ath10kPCIDevice::requestNativeLeave(UInt32 generation)
+{
+    if(!generation || !_wmiWorkLoop || isInactive())return kIOReturnBadArgument;
+    return _wmiWorkLoop->runAction(nativeJoinAction,this,&generation,reinterpret_cast<void *>(2),nullptr);
+}
+
 IOReturn Ath10kPCIDevice::abortNativeScanRequest(UInt32 generation)
 {
     if(!generation || !_wmiWorkLoop || isInactive())return kIOReturnBadArgument;
@@ -2676,6 +2682,24 @@ IOReturn Ath10kPCIDevice::nativeJoinAction(OSObject *owner,void *input,void *abo
         const UInt32 generation=*static_cast<const UInt32 *>(input);
         if(!generation || generation!=self->_nativeJoinGeneration)return kIOReturnNotFound;
         if(connection.stage==Ath10k::LinkStage::Disabled)return kIOReturnNotFound;
+        if(abortFlag==reinterpret_cast<void *>(2)) {
+            if(connection.disconnect!=Ath10k::DisconnectStage::None)
+                return connection.diagnostics.cancelOrigin &&
+                       !strcmp(connection.diagnostics.cancelOrigin,"native-leave")
+                    ? kIOReturnSuccess : kIOReturnBusy;
+            if(connection.cancelRequested) {
+                return connection.diagnostics.cancelOrigin &&
+                       !strcmp(connection.diagnostics.cancelOrigin,"native-leave")
+                    ? kIOReturnSuccess : kIOReturnBusy;
+            }
+            // Leave is distinct from Join-abort: do not poison the connection
+            // error field. serviceConnection() will drain outstanding ownership,
+            // close the controlled port, and run the normal peer/vdev teardown.
+            connection.cancelRequested=true;
+            connection.diagnostics.cancelOrigin="native-leave";
+            return kIOReturnSuccess;
+        }
+        if(abortFlag!=reinterpret_cast<void *>(1))return kIOReturnBadArgument;
         connection.cancelRequested=true;
         if(!connection.error || !strcmp(connection.error,"none"))connection.error="native-join-aborted";
         connection.diagnostics.cancelOrigin="native-join-abort";
