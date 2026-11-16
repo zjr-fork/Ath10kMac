@@ -129,9 +129,9 @@ def main() -> int:
                 f"!= expected {args.expected_skywalk}"
             )
 
-        infra_names = [re.search(r"\\b([A-Za-z_]\\w*)\\s*\\(", item).group(1)
+        infra_names = [re.search(r"\b([A-Za-z_]\w*)\s*\(", item).group(1)
                        for item in infra]
-        skywalk_names = [re.search(r"\\b([A-Za-z_]\\w*)\\s*\\(", item).group(1)
+        skywalk_names = [re.search(r"\b([A-Za-z_]\w*)\s*\(", item).group(1)
                          for item in skywalk]
         if args.expected_infra == 190 and tuple(infra_names) != EXPECTED_INFRA_METHOD_ORDER:
             first = next((i for i, pair in enumerate(zip(infra_names, EXPECTED_INFRA_METHOD_ORDER))
