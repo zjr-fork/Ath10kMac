@@ -1,6 +1,7 @@
 #pragma once
 
 #include <IOKit/IOReturn.h>
+#include <string.h>
 #include <IOKit/80211/apple80211_var.h>
 #include "../shared/Ath10kNativeBridge.h"
 
@@ -21,7 +22,7 @@ static inline IOReturn ath10kFillAppleScanResultScalars(
         return kIOReturnBadArgument;
 
     void *callerIEBuffer = result->asr_ie_data;
-    bzero(result, sizeof(*result));
+    memset(result, 0, sizeof(*result));
     result->asr_ie_data = callerIEBuffer;
     result->asr_ie_len = 0;
 
