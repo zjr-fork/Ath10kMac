@@ -97,9 +97,9 @@ int main() {
 
     Ath10kNativeJoinObserver invalid;
     const uint8_t multicast[6] = {0x01,0,0,0,0,1};
-    if (invalid.begin(60, multicast, false, baseline())) return 19;
+    if (invalid.begin(60, multicast, false, baseline())) return 23;
     base = baseline();
-    if (!invalid.begin(60, ap, false, base)) return 20;
+    if (!invalid.begin(60, ap, false, base)) return 24;
     snap = observation(ATH10K_JOIN_LINK_CONNECTED, 8, 20, false, true, ap);
     snap.reserved = 1;
     if (invalid.observe(60, snap)) return 25;
