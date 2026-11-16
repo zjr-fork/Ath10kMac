@@ -22,7 +22,11 @@ The 15.2 header set is the available Sequoia-family reference. The target OS rem
 | `macOS15/IO80211InfraProtocol.h` | `sizeof(IO80211InfraProtocol) == 0x120`; 190 pure virtual request methods |
 | `macOS15/IO80211ControllerV2.h` | `sizeof(IO80211Controller) == 0x128`; 12 pure virtual methods, including `getLogger` and `getFaultReporterFromDriver` |
 
-The generic wrapper `IO80211InfraProtocol.h` contains a different declaration set (190+ methods in the non-versioned file); it must not be used to infer the Sequoia vtable. The macOS15-specific protocol header is authoritative for this target.
+The generic wrapper `IO80211InfraProtocol.h` contains a different declaration set (231 pure virtual methods in the non-versioned file); it must not be used to infer the Sequoia vtable. The macOS15-specific protocol header is authoritative for this target.
+
+## Licensing and source-use boundary
+
+The pinned `laobamac/itlwm` revision's root `LICENSE` is GNU GPL version 2 (June 1991), while Ath10kMac is GPL-3.0. Treat itlwm as an ABI/research reference only: do not copy its implementation files or vendor its headers into this GPL-3.0 repository as part of this work. The native adapter must be independently implemented, and any future code reuse requires a separate compatibility review. Preserve the upstream URL, exact revision and license note in project provenance.
 
 ## Frontend implementation implications
 
