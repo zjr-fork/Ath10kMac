@@ -2655,6 +2655,7 @@ IOReturn Ath10kPCIDevice::nativeBSSAction(OSObject *owner,void *input,void *,voi
     if(b.hidden)out.flags|=ATH10K_NATIVE_BSS_HIDDEN;
     if(b.privacy)out.flags|=ATH10K_NATIVE_BSS_PRIVACY;
     if(b.rsnPresent)out.flags|=ATH10K_NATIVE_BSS_HAS_RSN;
+    if(b.wpaPresent)out.flags|=ATH10K_NATIVE_BSS_HAS_WPA;
     if(b.ratesValid)out.flags|=ATH10K_NATIVE_BSS_RATES_VALID;
     out.flags|=ATH10K_NATIVE_BSS_RSSI_ESTIMATED;
     out.channel=static_cast<UInt16>(b.rxChannel);
