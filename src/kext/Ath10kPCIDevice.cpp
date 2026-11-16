@@ -2578,12 +2578,19 @@ IOReturn Ath10kPCIDevice::abortNativeScanRequest(UInt32 generation)
     return _wmiWorkLoop->runAction(nativeScanAction,this,&generation,reinterpret_cast<void *>(1),nullptr);
 }
 
+IOReturn Ath10kPCIDevice::abortCurrentNativeScanRequest()
+{
+    if(!_wmiWorkLoop || isInactive())return kIOReturnNotReady;
+    return _wmiWorkLoop->runAction(nativeScanAction,this,nullptr,reinterpret_cast<void *>(1),nullptr);
+}
+
 IOReturn Ath10kPCIDevice::nativeScanAction(OSObject *owner,void *input,void *abortFlag,void *,void *)
 {
     auto *self=OSDynamicCast(Ath10kPCIDevice,owner);
-    if(!self || !input)return kIOReturnBadArgument;
+    if(!self || (!input && !abortFlag))return kIOReturnBadArgument;
     if(abortFlag) {
-        const UInt32 generation=*static_cast<const UInt32 *>(input);
+        const UInt32 generation=input?*static_cast<const UInt32 *>(input):
+            self->_nativeScanRequest.header.generation;
         if(!self->_nativeScanRequestValid ||
            self->_nativeScanRequest.header.generation!=generation)
             return kIOReturnNotFound;
