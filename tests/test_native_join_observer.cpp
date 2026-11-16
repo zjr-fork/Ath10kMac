@@ -97,14 +97,14 @@ int main() {
     snap = observation(ATH10K_JOIN_LINK_ASSOC, 8, 20, false, false, ap);
     snap.disconnect_stage = 1;
     if (!disconnected.observe(42, snap) ||
-        disconnected.terminal() != Ath10kWCLJoinLifecycle::kAborted) return 22;
+        disconnected.terminal() != Ath10kWCLJoinLifecycle::kAborted) return 26;
 
     Ath10kNativeJoinObserver timeout;
-    if (!timeout.begin(45, ap, false, base)) return 19;
+    if (!timeout.begin(45, ap, false, base)) return 23;
     if (timeout.abort(44) || !timeout.timeout(45) || timeout.active() ||
-        timeout.terminal() != Ath10kWCLJoinLifecycle::kTimedOut) return 20;
+        timeout.terminal() != Ath10kWCLJoinLifecycle::kTimedOut) return 24;
     Ath10kNativeJoinObserver explicitAbort;
-    if (!explicitAbort.begin(46, ap, false, base)) return 21;
+    if (!explicitAbort.begin(46, ap, false, base)) return 25;
     if (!explicitAbort.abort(46) || explicitAbort.active() ||
         explicitAbort.terminal() != Ath10kWCLJoinLifecycle::kAborted) return 22;
 
