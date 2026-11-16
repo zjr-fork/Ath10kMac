@@ -363,3 +363,10 @@ publisher until the selected 15.7 target's message identifier, payload shape,
 receiver, synchronous-copy behavior, and ordering have independent evidence.
 The current Leave observer remains a core-state gate only; it is not evidence
 that a particular WCL completion message has been identified.
+
+
+The Leave observer also preserves a generation high-water mark across
+`reset()`. It rejects duplicate, older, zero and half-range-ambiguous
+operation generations, while allowing valid RFC-1982 wraparound. Resetting
+the interface observer therefore cannot make an old Leave completion token
+valid again during the lifetime of that observer instance.
