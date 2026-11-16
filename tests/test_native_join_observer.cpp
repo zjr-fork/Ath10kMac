@@ -86,6 +86,19 @@ int main() {
     if (!wrap.observe(50, snap) ||
         wrap.terminal() != Ath10kWCLJoinLifecycle::kSucceeded) return 18;
 
+    Ath10kNativeJoinObserver badStatus;
+    if (!badStatus.begin(41, ap, false, base)) return 19;
+    snap = observation(ATH10K_JOIN_LINK_CONNECTED, 8, 20, false, true, ap);
+    snap.association_status = 17;
+    if (!badStatus.observe(41, snap) ||
+        badStatus.terminal() != Ath10kWCLJoinLifecycle::kFailed) return 20;
+    Ath10kNativeJoinObserver disconnected;
+    if (!disconnected.begin(42, ap, false, base)) return 21;
+    snap = observation(ATH10K_JOIN_LINK_ASSOC, 8, 20, false, false, ap);
+    snap.disconnect_stage = 1;
+    if (!disconnected.observe(42, snap) ||
+        disconnected.terminal() != Ath10kWCLJoinLifecycle::kAborted) return 22;
+
     Ath10kNativeJoinObserver timeout;
     if (!timeout.begin(45, ap, false, base)) return 19;
     if (timeout.abort(44) || !timeout.timeout(45) || timeout.active() ||
@@ -102,6 +115,6 @@ int main() {
     if (!invalid.begin(60, ap, false, base)) return 24;
     snap = observation(ATH10K_JOIN_LINK_CONNECTED, 8, 20, false, true, ap);
     snap.reserved = 1;
-    if (invalid.observe(60, snap)) return 25;
+    if (invalid.observe(60, snap)) return 29;
     return 0;
 }
