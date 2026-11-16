@@ -126,6 +126,12 @@ the association reaches Connected. Counter comparisons use half-range serial
 arithmetic that permits counter wrap through zero (operation generation zero
 remains reserved). This helper is not yet connected to Apple WCL callbacks.
 
+Native bridge actions are additionally gated by `_nativeCoreReady`, which
+becomes true only after `prepareNetwork()` has completed and the shared
+runtime worker has been armed; runtime shutdown clears it on the same gate.
+This prevents an early native snapshot/scan from racing the one-time
+pre-runtime initialization of connection state.
+
 The snapshot action is serialized on `_wmiWorkLoop`; the runtime
 initialization assigns that loop from `getWorkLoop()`, and the PCI service's
 `getWorkLoop()` is the `_networkWorkLoop` created by the controller. Thus the
