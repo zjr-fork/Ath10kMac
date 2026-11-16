@@ -50,7 +50,7 @@ static inline IOReturn ath10kFillAppleScanResultScalars(
     if (ssidLength > sizeof(result->asr_ssid))
         ssidLength = sizeof(result->asr_ssid);
     result->asr_ssid_len = (uint8_t)ssidLength;
-    for (UInt32 i = 0; i < ssidLength; ++i)
+    for (uint32_t i = 0; i < ssidLength; ++i)
         result->asr_ssid[i] = record->ssid[i];
 
     /* asr_age is intentionally zero: the core snapshot has no age clock. */
