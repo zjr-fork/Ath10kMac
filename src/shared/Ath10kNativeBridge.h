@@ -279,6 +279,22 @@ static inline int ath10kNativeValidateJoinRequest(const Ath10kNativeJoinRequest 
     return 1;
 }
 
+static inline int ath10kNativeOpenJoinMatchesBSS(const Ath10kNativeJoinRequest *request,
+                                                        const Ath10kNativeBSSRecord *bss) {
+    if (!ath10kNativeValidateJoinRequest(request) || !bss) return 0;
+    if (bss->flags & (ATH10K_NATIVE_BSS_PRIVACY|ATH10K_NATIVE_BSS_HAS_RSN|
+                      ATH10K_NATIVE_BSS_HAS_WPA)) return 0;
+    if (!(bss->capabilities & 1u) || (bss->capabilities & 2u) ||
+        !bss->beacon_interval || !bss->rate_count ||
+        !(bss->flags & ATH10K_NATIVE_BSS_RATES_VALID)) return 0;
+    for (uint32_t i=0;i<6;++i) if (bss->bssid[i]!=request->bssid[i]) return 0;
+    if ((bss->flags & ATH10K_NATIVE_BSS_HIDDEN) && !bss->ssid_length) return 1;
+    if (bss->ssid_length!=request->ssid_length) return 0;
+    for (uint32_t i=0;i<request->ssid_length;++i)
+        if (bss->ssid[i]!=request->ssid[i]) return 0;
+    return 1;
+}
+
 static inline int ath10kNativeValidateScanRequest(const Ath10kNativeScanRequest *r) {
     if (!r || !ath10kNativeHeaderValid(&r->header, ATH10K_NATIVE_OP_SCAN_START,
                                        (uint16_t)sizeof(*r))) return 0;
