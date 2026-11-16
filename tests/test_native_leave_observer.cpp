@@ -66,5 +66,17 @@ int main() {
     assert(result == Ath10kNativeLeaveObserver::kPending && observer.active());
     observer.reset();
     assert(!observer.active() && observer.generation() == 0);
+    // Reset must not erase the anti-replay high-water mark.
+    assert(!observer.begin(8, connected));
+    assert(!observer.begin(7, connected));
+    assert(observer.begin(9, connected));
+    observer.reset();
+    // RFC-1982 wrap is accepted, while the ambiguous half-range is rejected.
+    Ath10kNativeLeaveObserver wrapped;
+    assert(wrapped.begin(0xfffffffeu, connected));
+    wrapped.reset();
+    assert(wrapped.begin(1u, connected));
+    wrapped.reset();
+    assert(!wrapped.begin(0x80000001u, connected));
     return 0;
 }
