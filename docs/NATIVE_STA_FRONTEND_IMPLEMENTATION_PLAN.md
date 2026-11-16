@@ -113,6 +113,18 @@ The WCL join lifecycle accepts the Beacon event before or after the association
 completion event, but requires the caller to prove both selected-BSSID match
 and a post-begin Beacon serial.
 
+The host-testable `Ath10kNativeJoinObserver.hpp` now consumes only
+`Ath10kNativeJoinSnapshot` values. The interface supplies its own operation
+generation, selected BSSID, security mode and pre-join beacon/security serial
+baselines. The observer rejects stale generations, malformed snapshots,
+mismatched BSSIDs and pre-join beacons; it independently latches association,
+a post-begin selected-AP Beacon and controlled-port authorization. WPA2
+authorization must also advance the security serial. Open networks use the
+same authorization gate because the core explicitly opens their port when
+the association reaches Connected. Counter comparisons use half-range serial
+arithmetic that permits counter wrap through zero (operation generation zero
+remains reserved). This helper is not yet connected to Apple WCL callbacks.
+
 The PCI service now exposes `copyNativeJoinSnapshot()` as a value-only,
 work-loop-serialized observation API. Its fixed 32-byte structure carries the
 core link stage, association status, actual-Beacon serial, security generation,
@@ -123,12 +135,11 @@ reading mutable `ConnectionState` fields independently. The packed C/C++ ABI
 is asserted by both bridge test translation units.
 
 These are source-level observations of Ath10kMac's current core path, not a
-claim that the native WCL bridge already consumes them. The Join lifecycle
-tracker remains a host-tested value component and is not yet wired to the
-controller/interface objects. A future bridge should snapshot the association
-generation, beacon counter baseline, `securityGeneration`, `secure`, and
-`portAuthorized` under the core work-loop gate, then translate only
-generation-matched transitions into lifecycle events.
+claim that the native WCL bridge is already wired. The observer now translates
+the pointer-free snapshot into lifecycle facts, but no production controller
+or interface calls it yet. The interface must capture the beacon/security
+baselines immediately before queueing each accepted Join and poll/observe only
+while that same generation remains active.
 
 ## Not yet proven / implementation blockers
 
