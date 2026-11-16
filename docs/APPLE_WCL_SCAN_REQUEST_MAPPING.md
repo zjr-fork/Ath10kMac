@@ -38,7 +38,7 @@ Channel entry filtering excludes channel zero, channels above 196, 6 GHz entries
 - Rejects an explicitly supplied channel list if every entry was filtered out, rather than accidentally broadening it into a full-band scan.
 - Assigns a nonzero generation supplied by the caller; the device queue replaces it with its own monotonic generation under the WMI work-loop gate.
 
-The WCL adapter should call `queueNativeScanRequest()` after decoding. Its abort callback should call `abortCurrentNativeScanRequest()`; the core reads and cancels the active generation under the same work-loop gate. The generation-specific `abortNativeScanRequest(generation)` remains available to callers that track a generation themselves.
+The WCL adapter should call `queueNativeScanRequest()` after decoding and retain the returned generation. Its abort callback should call `abortNativeScanRequest(generation)`; `abortCurrentNativeScanRequest()` is also available when the Apple callback carries no generation. `getNativeScanStatus(generation)` reports pending/success/failure/cancel/timeout and result count under the WMI work-loop gate.
 
 ## Result path still required
 
