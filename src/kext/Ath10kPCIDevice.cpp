@@ -2662,7 +2662,7 @@ const char *Ath10kPCIDevice::serviceWMIScan(UInt64 nowMs)
             ? Ath10k::buildWMIScanRequest(static_cast<UInt8 *>(_wmiTxBuffer.virtualAddress()),
                 static_cast<UInt32>(_wmiTxBuffer.length()),_htcWMIControl.maxMessageSize,
                 _htcWMIControl.endpoint,state.id,_connection.stage==Ath10k::LinkStage::Connected,
-                &_regulatory,_nativeScanRequest)
+                &_regulatory,_wmiInit.mac,_nativeScanRequest)
             : Ath10k::buildWMIScan(static_cast<UInt8 *>(_wmiTxBuffer.virtualAddress()),
                 static_cast<UInt32>(_wmiTxBuffer.length()),_htcWMIControl.endpoint,state.id,
                 _connection.stage==Ath10k::LinkStage::Connected,&_regulatory,fast);
