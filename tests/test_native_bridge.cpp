@@ -86,6 +86,7 @@ int main() {
         !ath10kNativeGenerationIsNewer(1u,0xffffffffu) ||
         ath10kNativeGenerationIsNewer(0x80000000u,0u)) return 21;
 
+    Ath10kNativeJoinRequest join{};
     Ath10kNativeBSSRecord openBSS{};
     openBSS.bssid[0]=0x02;openBSS.bssid[5]=0x01;
     openBSS.ssid_length=3;openBSS.ssid[0]='a';openBSS.ssid[1]='p';openBSS.ssid[2]='1';
@@ -112,7 +113,6 @@ int main() {
     openBSS.ssid_length=0;
     if (!ath10kNativeOpenJoinMatchesBSS(&join,&openBSS)) return 27;
 
-    Ath10kNativeJoinRequest join{};
     join.header.version=ATH10K_NATIVE_ABI_VERSION;
     join.header.size=static_cast<uint16_t>(sizeof(join));
     join.header.operation=ATH10K_NATIVE_OP_ASSOCIATE;
