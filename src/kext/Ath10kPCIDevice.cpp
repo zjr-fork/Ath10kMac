@@ -2670,8 +2670,9 @@ IOReturn Ath10kPCIDevice::nativeBSSAction(OSObject *owner,void *input,void *,voi
     for(UInt32 i=0;i<out.ie_length;++i)out.ies[i]=b.ies[i];
     out.capabilities=b.capabilities;
     out.beacon_interval=b.beaconInterval;
-    out.rate_count=b.rateCount>sizeof(out.rates)?sizeof(out.rates):b.rateCount;
-    for(UInt32 i=0;i<out.rate_count;++i)out.rates[i]=b.rates[i];
+    const UInt32 rateCount=b.rateCount>32u?32u:b.rateCount;
+    out.rate_count=static_cast<UInt8>(rateCount);
+    for(UInt32 i=0;i<rateCount;++i)out.rates[i]=b.rates[i];
     return kIOReturnSuccess;
 }
 
