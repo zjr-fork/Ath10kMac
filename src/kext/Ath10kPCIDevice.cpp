@@ -18,6 +18,10 @@ struct NativeBSSCopyArgs {
     UInt32 *countOut;
     Ath10kNativeBSSRecord *record;
 };
+struct NativeScanStatusArgs {
+    UInt32 generation;
+    Ath10kNativeScanStatus *status;
+};
 
 // Standard PCI configuration-space offsets/capability IDs.
 static constexpr UInt8 kPCIConfigProgIf        = 0x09;
@@ -2606,6 +2610,30 @@ IOReturn Ath10kPCIDevice::copyNativeBSSRecord(UInt32 generation,UInt32 index,
     return _wmiWorkLoop->runAction(nativeBSSAction,this,&args,nullptr,nullptr);
 }
 
+IOReturn Ath10kPCIDevice::getNativeScanStatus(UInt32 generation,Ath10kNativeScanStatus *status)
+{
+    if(!generation || !status || !_wmiWorkLoop || isInactive())return kIOReturnBadArgument;
+    NativeScanStatusArgs args{generation,status};
+    return _wmiWorkLoop->runAction(nativeScanStatusAction,this,&args,nullptr,nullptr);
+}
+
+IOReturn Ath10kPCIDevice::nativeScanStatusAction(OSObject *owner,void *input,void *,void *,void *)
+{
+    auto *self=OSDynamicCast(Ath10kPCIDevice,owner);
+    if(!self || !input)return kIOReturnBadArgument;
+    auto &args=*static_cast<NativeScanStatusArgs *>(input);
+    if(!args.status)return kIOReturnBadArgument;
+    if(self->_wmiScan.generation!=args.generation)return kIOReturnNotFound;
+    args.status->generation=args.generation;
+    args.status->state=self->_wmiScan.timedOut?ATH10K_NATIVE_SCAN_TIMED_OUT:
+        (self->_wmiScan.failed?ATH10K_NATIVE_SCAN_FAILED:
+         (!self->_wmiScan.completed?ATH10K_NATIVE_SCAN_PENDING:
+          (self->_wmiScan.cancelRequested?ATH10K_NATIVE_SCAN_CANCELLED:ATH10K_NATIVE_SCAN_SUCCEEDED)));
+    args.status->reason=self->_wmiScan.reason;
+    args.status->result_count=self->_wmiBSS.count;
+    return kIOReturnSuccess;
+}
+
 IOReturn Ath10kPCIDevice::nativeBSSAction(OSObject *owner,void *input,void *,void *,void *)
 {
     auto *self=OSDynamicCast(Ath10kPCIDevice,owner);
@@ -2809,15 +2837,21 @@ const char *Ath10kPCIDevice::serviceWMIScan(UInt64 nowMs)
         if(state.stopConsumed && !_wmi.credits.outstanding)state.txOwned=false;
     }
     if (state.failed) {state.status="scan-firmware-failed";return state.status;}
-    if (state.elapsedMs>=Ath10k::kWMIScanHostMs) {
-        state.status=!state.txConsumed?"scan-tx-timeout":
-            (!state.creditReturned?"scan-credit-timeout":(!state.started?"scan-start-timeout":"scan-completion-timeout"));
-        return state.status;
+    if (state.elapsedMs>=Ath10k::kWMIScanHostMs && !state.timedOut) {
+        state.timedOut=true;
+        if(!state.terminal)state.cancelRequested=true;
+        state.status="scan-timeout-aborting";
+        _nativeScanRequestValid=false;
     }
     if (state.txConsumed && state.creditReturned && (state.started || state.cancelRequested) && state.terminal && (!state.stopSubmitted || state.stopConsumed)) {
-        state.completed=true;state.status=state.cancelRequested?"scan-cancelled":"scan-completed";
+        state.completed=true;
+        state.status=state.timedOut?"scan-timeout":(state.cancelRequested?"scan-cancelled":"scan-completed");
         _nativeScanRequestValid=false;
-        if(state.cancelRequested) {
+        if(state.timedOut) {
+            IOLog("Ath10kMac: WMI START_SCAN TIMEOUT id=0x%x started=%s stop-consumed=%s elapsed=%llu ms\n",
+                  state.id,state.started?"yes":"no",state.stopConsumed?"yes":"no",
+                  static_cast<unsigned long long>(state.elapsedMs));
+        } else if(state.cancelRequested) {
             IOLog("Ath10kMac: WMI START_SCAN CANCELLED id=0x%x started=%s stop-consumed=%s elapsed=%llu ms\n",
                   state.id,state.started?"yes":"no",state.stopConsumed?"yes":"no",
                   static_cast<unsigned long long>(state.elapsedMs));
