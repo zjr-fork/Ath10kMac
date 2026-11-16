@@ -256,3 +256,27 @@ frontend must not copy the magic number: resolve the expected terminal
 `IOReturn` against the macOS 15.7 SDK/caller before selecting it. In particular,
 do not conflate iterator exhaustion with successful WMI completion or the
 separate WCL `ScanDone` notification.
+
+
+## Generation-scoped cursor helper
+
+`src/kext/Ath10kNativeScanCursor.hpp` now contains the frontend's pointer-free
+cursor state machine. It accepts only a nonzero generation whose core scan state
+is `ATH10K_NATIVE_SCAN_SUCCEEDED`, snapshots the completed result count, and
+returns one monotonically increasing index per call. It distinguishes a stale
+generation, a not-ready/inactive cursor, a record, and stable end-of-iteration.
+An empty successful scan immediately returns end-of-iteration.
+
+The cursor deliberately does not fetch or retain BSS records. The eventual
+`QcaAirportInfraInterface::getSCAN_RESULT` caller must hold its interface command
+gate while advancing the cursor and call `copyNativeBSSRecord(generation, index,
+...)` for each item. If that copy reports a generation mismatch, the frontend
+must invalidate the cursor rather than returning a record from a newer scan.
+Reset the cursor on interface stop/free and whenever a new scan generation is
+accepted. This keeps mutable cache ownership in the PCI device and avoids
+cross-call pointers.
+
+A host-buildable regression test covers pending rejection, generation mismatch,
+sequential indices, empty scans, repeated end-of-iteration, and reset:
+`make check-native-scan-cursor`. The test was compiled and executed with a
+host C++17 compiler during development; this is not a macOS SDK or kext build.
