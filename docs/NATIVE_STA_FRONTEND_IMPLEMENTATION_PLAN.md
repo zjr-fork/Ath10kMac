@@ -114,11 +114,11 @@ reported from runtime firmware capabilities.
 
 Required next core work, after the Sequoia 15.7 candidate/key ABI is verified:
 
-1. Define a pointer-free, bounded native Join value request. It must represent
-   the selected BSSID, SSID, supported security mode and any required
-   credential material without retaining Apple pointers. Secret bytes must be
-   copied into driver-owned storage, wiped on every terminal/rollback path,
-   and never included in diagnostics or snapshots.
+1. Consume and enforce the new pointer-free, bounded Join request ABI. Its
+   first supported mode is OPEN only; WPA2 credential fields must not be added
+   until the Sequoia 15.7 key-material form is proven. Any future secret bytes
+   must be copied into driver-owned storage, wiped on every terminal/rollback
+   path, and never included in diagnostics or snapshots.
 2. Resolve the requested BSSID against a completed, generation-valid BSS
    record; reject missing, duplicate/ambiguous, malformed or unsupported
    candidates rather than falling back to another AP.
@@ -137,7 +137,38 @@ Required next core work, after the Sequoia 15.7 candidate/key ABI is verified:
    operation until the native path is independently tested; never let a native
    request silently fall through to `selectOpenBSS()`.
 
-### Sequoia reference lead for association candidates (not yet approved for decoding)
+### Pointer-free native Join request contract (core API not yet wired)
+
+The shared ABI now defines a fixed 64-byte `Ath10kNativeJoinRequest`:
+- the ordinary operation header carries the frontend Join generation;
+- `scan_generation` binds the request to the exact completed native scan/BSS snapshot;
+- BSSID and SSID identify the AP selected by macOS;
+- `security_mode` is explicit rather than inferred from beacon privacy bits.
+
+The validator currently accepts only OPEN, requires nonzero scan and Join generations,
+a unicast nonzero BSSID, and an SSID length of 1..32. WPA2-PSK is represented as
+a reserved enum value but is deliberately rejected. The C and C++ host ABI tests
+cover the 64-byte size, field offsets, valid open request, unsupported WPA2,
+multicast BSSID, missing scan generation and overlength SSID.
+
+This is a value-contract milestone only. There is not yet a
+`queueNativeJoinRequest()` implementation, cache-generation resolver, credential
+ingress, or WCL callback wiring. The core must still reject a request unless its
+scan generation equals the last successfully completed native scan, the selected
+BSSID resolves to one unambiguous cache record, the SSID matches (with a narrowly
+defined hidden-SSID exception), and that record is a valid infrastructure BSS.
+It must seed the existing connection state from that exact record and never call
+the legacy automatic `selectOpenBSS()` path as a fallback. The operation must also
+be rejected while another Join/disconnect/scan owns the connection state.
+
+The open-only first vertical slice is intentional: it can validate AP selection,
+firmware association, selected-AP Beacon observation and controlled-port opening
+without pretending that WPA2 credentials are already supported. WPA2 must remain
+unadvertised until the separate key-material contract and full EAPOL/4-way
+handshake are proven. The new struct does not authorize decoding Apple's opaque
+`apple80211AssocCandidates` buffer; that independent 15.7 ABI gate remains open.
+
+## Sequoia reference lead for association candidates (not yet approved for decoding)
 
 The pinned Sequoia 15 header declares the WCL virtual as
 `setWCL_ASSOCIATE(apple80211AssocCandidates*)` (CamelCase), while also
