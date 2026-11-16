@@ -131,6 +131,43 @@ non-boolean flags are also rejected. Its
 regression test is part of `scripts/test-native-bridge.sh`; the observer is
 not yet connected to a production interface or WCL message publisher.
 
+### Additional WCL lifecycle evidence from the pinned Sequoia reference
+
+A targeted read of the pinned `itlwm` commit
+`7204c69d1bfa7f5cc0f7864e08fb03e55d0ec29e` narrows, but does not close, the
+Leave/Scan notification question:
+
+- Its WCL message enumeration includes `ScanDone = 237`,
+  `ConnectComplete = 213`, `JoinAbortComplete = 214`, and
+  `LinkStatus = 216`; it does not define a dedicated `LeaveComplete`
+  message in that enumeration.
+- Its `finishWCLScan(status)` posts `ScanDone` with a four-byte
+  `IOReturn` value. This is a concrete reference-implementation payload shape,
+  not proof of Apple's private receiver contract or the controller
+  `postMessage` copy/lifetime semantics.
+- Its `abortWCLJoin()` calls the local leave routine and then posts
+  `JoinAbortComplete` with an empty payload. This is specific to Join-abort;
+  it must not be reinterpreted as a normal Leave completion.
+- Its normal leave routine clears local join/security state and requests the
+  802.11 state transition, then returns success. It does not itself post a
+  dedicated Leave-complete event. A later down `LinkStatus` notification is
+  conditional on the reference's link-indication state; it is not evidence
+  that message 216 is a teardown-completion barrier.
+- The WCL implementation uses the controller-side five-argument
+  `postMessage(interface, message, payload, length, true)` for these messages.
+  The declaration alone and call sites do not establish whether the payload is
+  copied synchronously or how long the interface must remain alive.
+
+These observations are from one GPL-2.0-only reference implementation and are
+used only as protocol/lifecycle evidence; no implementation or header source
+has been copied. They do not establish an Apple 15.7 ABI contract. Therefore
+Ath10kMac still must not invent a LeaveComplete ID, treat JoinAbortComplete as
+LeaveComplete, or publish LinkStatus before its own teardown observer reaches
+the final reset state. ScanDone's four-byte status payload is a useful
+candidate for local compatibility testing, but its message ID, recipient and
+payload ownership must be verified against the actual 15.7 WCL receiver before
+production publication.
+
 The separate WPA2 limitation remains unchanged. The core still lacks a verified
 macOS credential/key-material ingress that drives the complete EAPOL/4-way
 handshake and controlled-port path. The existing key installation primitives
