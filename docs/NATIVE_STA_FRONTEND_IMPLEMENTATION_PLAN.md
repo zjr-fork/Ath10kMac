@@ -113,6 +113,16 @@ The WCL join lifecycle accepts the Beacon event before or after the association
 completion event, but requires the caller to prove both selected-BSSID match
 and a post-begin Beacon serial.
 
+The host-testable `Ath10kNativeScanObserver.hpp` now joins the core's
+`Ath10kNativeScanStatus` to the interface's generation-scoped BSS cursor.
+A matching pending status leaves the operation active; only a matching
+SUCCEEDED status opens result enumeration. FAILED, CANCELLED, timeout and
+explicit abort close the generation without exposing partial BSS records.
+Late success after abort, stale status generations and stale result-cursor
+generations are rejected. The helper owns no BSS memory and obtains records
+only through the PCI service's value-copy API. It is not yet connected to
+Apple WCL result callbacks or ScanDone message publication.
+
 The host-testable `Ath10kNativeJoinObserver.hpp` now consumes only
 `Ath10kNativeJoinSnapshot` values. The interface supplies its own operation
 generation, selected BSSID, security mode and pre-join beacon/security serial
