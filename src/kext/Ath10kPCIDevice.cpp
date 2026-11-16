@@ -13,6 +13,7 @@ struct NativeScanQueueArgs {
     const Ath10kNativeScanRequest *request;
     UInt32 *generationOut;
 };
+struct NativeJoinQueueArgs { const Ath10kNativeJoinRequest *request; };
 struct NativeBSSCopyArgs {
     UInt32 generation,index;
     UInt32 *countOut;
@@ -2599,6 +2600,20 @@ IOReturn Ath10kPCIDevice::queueNativeScanRequest(const Ath10kNativeScanRequest *
     return _wmiWorkLoop->runAction(nativeScanAction,this,&args,nullptr,nullptr);
 }
 
+IOReturn Ath10kPCIDevice::queueNativeJoinRequest(const Ath10kNativeJoinRequest *request)
+{
+    if(!request || !ath10kNativeValidateJoinRequest(request))return kIOReturnBadArgument;
+    if(!_wmiWorkLoop || isInactive())return kIOReturnNotReady;
+    NativeJoinQueueArgs args{request};
+    return _wmiWorkLoop->runAction(nativeJoinAction,this,&args,nullptr,nullptr);
+}
+
+IOReturn Ath10kPCIDevice::abortNativeJoinRequest(UInt32 generation)
+{
+    if(!generation || !_wmiWorkLoop || isInactive())return kIOReturnBadArgument;
+    return _wmiWorkLoop->runAction(nativeJoinAction,this,&generation,reinterpret_cast<void *>(1),nullptr);
+}
+
 IOReturn Ath10kPCIDevice::abortNativeScanRequest(UInt32 generation)
 {
     if(!generation || !_wmiWorkLoop || isInactive())return kIOReturnBadArgument;
@@ -2647,6 +2662,85 @@ IOReturn Ath10kPCIDevice::getNativeCapabilities(Ath10kNativeCapabilities *capabi
     if(!capabilities || !_wmiWorkLoop || isInactive())return kIOReturnBadArgument;
     NativeCapabilitiesArgs args{capabilities};
     return _wmiWorkLoop->runAction(nativeCapabilitiesAction,this,&args,nullptr,nullptr);
+}
+
+IOReturn Ath10kPCIDevice::nativeJoinAction(OSObject *owner,void *input,void *abortFlag,void *,void *)
+{
+    auto *self=OSDynamicCast(Ath10kPCIDevice,owner);
+    if(!self || !input)return kIOReturnBadArgument;
+    if(!self->_nativeCoreReady || !self->_wmiLive.active || !self->_runtimeActive ||
+       !self->_wmiInit.ready || !self->_wmiScanChannels.completed ||
+       !self->_networkEnabled || self->_dmaQuarantine)return kIOReturnNotReady;
+    auto &connection=self->_connection;
+    if(abortFlag) {
+        const UInt32 generation=*static_cast<const UInt32 *>(input);
+        if(!generation || generation!=self->_nativeJoinGeneration)return kIOReturnNotFound;
+        if(connection.stage==Ath10k::LinkStage::Disabled)return kIOReturnNotFound;
+        connection.cancelRequested=true;
+        if(!connection.error || !strcmp(connection.error,"none"))connection.error="native-join-aborted";
+        connection.diagnostics.cancelOrigin="native-join-abort";
+        return kIOReturnSuccess;
+    }
+
+    const auto &request=*static_cast<const NativeJoinQueueArgs *>(input)->request;
+    if(!ath10kNativeValidateJoinRequest(&request))return kIOReturnBadArgument;
+    const UInt32 delta=request.header.generation-self->_nativeJoinGeneration;
+    if(!delta || delta>=0x80000000u)return kIOReturnNotFound;
+    if(self->_wmiScan.generation!=request.scan_generation || !self->_wmiScan.completed ||
+       self->_wmiScan.failed || self->_wmiScan.timedOut || self->_wmiScan.cancelRequested)
+        return kIOReturnNotReady;
+    if(connection.stage!=Ath10k::LinkStage::Disabled ||
+       connection.disconnect!=Ath10k::DisconnectStage::None ||
+       connection.wmiOwned || connection.txOwned || connection.submitted ||
+       connection.stats.step || connection.maintenance.step || connection.radio.step ||
+       connection.csa.phase!=Ath10k::ChannelSwitchPhase::Idle ||
+       self->_wmi.credits.outstanding)return kIOReturnBusy;
+
+    const Ath10k::WMIBSS *selected=nullptr;
+    UInt32 matches=0;
+    for(UInt32 i=0;i<self->_wmiBSS.count;++i) {
+        const auto &ap=self->_wmiBSS.entries[i];
+        if(!Ath10k::sameMAC(ap.bssid,request.bssid))continue;
+        const bool hidden=ap.hidden && ap.ssidLength==0;
+        bool ssidMatches=hidden || ap.ssidLength==request.ssid_length;
+        if(ssidMatches && !hidden)
+            for(UInt32 j=0;j<request.ssid_length;++j)
+                if(ap.ssid[j]!=request.ssid[j]){ssidMatches=false;break;}
+        if(!ssidMatches)continue;
+        selected=&ap;++matches;
+    }
+    if(matches!=1 || !selected)return kIOReturnNotFound;
+    if(selected->privacy || selected->rsnPresent || selected->wpaPresent ||
+       !(selected->capabilities&1u) || (selected->capabilities&2u) ||
+       !selected->beaconInterval || !selected->rateCount || !selected->ratesValid)
+        return kIOReturnUnsupported;
+
+    // Seed only the AP explicitly selected by macOS. selectOpenBSS below is
+    // reused solely as the existing PHY/rate/regulatory validator; its BSSID
+    // match cannot fall back to another cache entry.
+    bzero(connection.ssid,sizeof(connection.ssid));
+    bcopy(request.ssid,connection.ssid,request.ssid_length);
+    connection.ssidLength=request.ssid_length;
+    bcopy(request.bssid,connection.bssid,sizeof(connection.bssid));
+    bcopy(self->_wmiInit.mac,connection.local,sizeof(connection.local));
+    connection.secure=false;
+    connection.hiddenSSID=selected->hidden && selected->ssidLength==0;
+    connection.error="none";
+    connection.cancelRequested=false;
+    connection.disconnect=Ath10k::DisconnectStage::None;
+    connection.regulatory=self->_regulatory;
+    const char *selectionError=Ath10k::selectOpenBSS(connection,self->_wmiBSS);
+    if(selectionError) {
+        Ath10k::resetDisconnected(connection);
+        return kIOReturnUnsupported;
+    }
+    connection.stage=Ath10k::LinkStage::Scan;
+    connection.sinceMs=Ath10k::uptimeNS()/1000000u;
+    self->_nativeJoinGeneration=request.header.generation;
+    // The scan is terminal, so its request no longer owns the frontend slot.
+    self->_nativeScanRequestValid=false;
+    self->publishConnection();
+    return kIOReturnSuccess;
 }
 
 IOReturn Ath10kPCIDevice::nativeCapabilitiesAction(OSObject *owner,void *input,void *,void *,void *)
