@@ -49,6 +49,8 @@ public:
     // Native Apple80211/WCL frontend entry points. Calls are copied and serialized
     // onto the WMI work loop; no caller-owned buffer survives the call.
     IOReturn queueNativeScanRequest(const Ath10kNativeScanRequest *,UInt32 *generationOut=nullptr);
+    IOReturn queueNativeJoinRequest(const Ath10kNativeJoinRequest *);
+    IOReturn abortNativeJoinRequest(UInt32 generation);
     IOReturn abortNativeScanRequest(UInt32 generation);
     IOReturn abortCurrentNativeScanRequest();
     IOReturn copyNativeBSSRecord(UInt32 generation,UInt32 index,Ath10kNativeBSSRecord *,UInt32 *countOut);
@@ -83,6 +85,7 @@ private:
     void fillControlInfo(AthControl::Response &);
     static IOReturn controlAction(OSObject *,void *,void *,void *,void *);
     static IOReturn nativeScanAction(OSObject *,void *,void *,void *,void *);
+    static IOReturn nativeJoinAction(OSObject *,void *,void *,void *,void *);
     static IOReturn nativeBSSAction(OSObject *,void *,void *,void *,void *);
     static IOReturn nativeScanStatusAction(OSObject *,void *,void *,void *,void *);
     static IOReturn nativeLinkSnapshotAction(OSObject *,void *,void *,void *,void *);
@@ -194,6 +197,7 @@ private:
     Ath10k::WMIScanState _wmiScan{};
     Ath10kNativeScanRequest _nativeScanRequest{};
     bool _nativeScanRequestValid=false;
+    UInt32 _nativeJoinGeneration=0;
     Ath10k::WMIBSSCache _wmiBSS{};
     Ath10k::WMIEchoState _wmiEcho{};
     bool prepareWMIRuntime();
