@@ -42,6 +42,13 @@ def main() -> int:
                 raise SystemExit(f"generated probe missing {method}")
         if generated.count("kIOReturnUnsupported") != 3:
             raise SystemExit("generated probe did not emit exactly three unsupported stubs")
+        skywalk_include = generated.index('#include "IO80211SkywalkInterface.h"')
+        infra_include = generated.index('#include "IO80211InfraProtocol.h"')
+        if skywalk_include >= infra_include:
+            raise SystemExit("Skywalk base header must be included before InfraProtocol")
+        for opaque_type in ("ifnet_init_eparams", "nicproxy_info_s"):
+            if f"typedef struct {opaque_type} {opaque_type};" not in generated:
+                raise SystemExit(f"missing opaque forward declaration for {opaque_type}")
 
         bad_command = command.copy()
         bad_command[bad_command.index("--expected-infra") + 1] = "3"
