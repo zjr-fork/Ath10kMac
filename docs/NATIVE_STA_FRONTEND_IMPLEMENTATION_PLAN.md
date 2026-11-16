@@ -103,10 +103,13 @@ cancellation is rejected. This is a core-side primitive only; the WCL leave
 callback and its terminal completion message are not wired.
 
 The host-testable `Ath10kNativeLeaveObserver` now waits for the pointer-free
-Join snapshot to reach the final idle state (Disabled, no disconnect stage,
-unsecured and unauthorized) before allowing a future LeaveComplete publisher
-to finish. A closed controlled port or an in-progress disconnect is explicitly
-not completion. Stale generations and malformed snapshots are rejected. Its
+Join snapshot to reach the final reset state (Disabled, no disconnect stage,
+unsecured, unauthorized and no cancellation still asserted) before allowing a
+future LeaveComplete publisher to finish. Closing the controlled port, an
+in-progress disconnect, or an idle-looking snapshot before the core clears its
+cancellation flag is explicitly not completion. Stale generations and malformed
+snapshots are rejected; out-of-range link/disconnect stages and non-boolean
+flags are also rejected. Its
 regression test is part of `scripts/test-native-bridge.sh`; the observer is
 not yet connected to a production interface or WCL message publisher.
 
