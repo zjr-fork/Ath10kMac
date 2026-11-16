@@ -346,6 +346,7 @@ static_assert(sizeof(Ath10kNativeBSSRecord) == 597, "native ABI BSS record size"
 static_assert(offsetof(Ath10kNativeBSSRecord, capabilities) == 560, "native ABI BSS capabilities offset");
 static_assert(offsetof(Ath10kNativeBSSRecord, rates) == 565, "native ABI BSS rates offset");
 static_assert(sizeof(Ath10kNativeKeyRequest) == 70, "native ABI key request size");
+static_assert(sizeof(Ath10kNativeCapabilities) == 164, "native capabilities size");
 static_assert(sizeof(Ath10kNativeLinkSnapshot) == 88, "native ABI link snapshot size");
 #else
 _Static_assert(sizeof(Ath10kNativeMessageHeader) == 20, "native ABI header size");
@@ -358,6 +359,7 @@ _Static_assert(sizeof(Ath10kNativeBSSRecord) == 597, "native ABI BSS record size
 _Static_assert(offsetof(Ath10kNativeBSSRecord, capabilities) == 560, "native ABI BSS capabilities offset");
 _Static_assert(offsetof(Ath10kNativeBSSRecord, rates) == 565, "native ABI BSS rates offset");
 _Static_assert(sizeof(Ath10kNativeKeyRequest) == 70, "native ABI key request size");
+_Static_assert(sizeof(Ath10kNativeCapabilities) == 164, "native capabilities size");
 _Static_assert(sizeof(Ath10kNativeLinkSnapshot) == 88, "native ABI link snapshot size");
 #endif
 
