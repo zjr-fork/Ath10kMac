@@ -116,9 +116,11 @@ Join snapshot to reach the final reset state (Disabled, no disconnect stage,
 unsecured, unauthorized and no cancellation still asserted) before allowing a
 future LeaveComplete publisher to finish. Closing the controlled port, an
 in-progress disconnect, or an idle-looking snapshot before the core clears its
-cancellation flag is explicitly not completion. Stale generations and malformed
-snapshots are rejected; out-of-range link/disconnect stages and non-boolean
-flags are also rejected. Its
+cancellation flag is explicitly not completion. Observer startup also rejects
+a baseline that is already disconnecting or has cancellation asserted, so it
+cannot claim ownership of another teardown transaction. Stale generations and
+malformed snapshots are rejected; out-of-range link/disconnect stages and
+non-boolean flags are also rejected. Its
 regression test is part of `scripts/test-native-bridge.sh`; the observer is
 not yet connected to a production interface or WCL message publisher.
 
