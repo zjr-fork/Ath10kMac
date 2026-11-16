@@ -248,3 +248,11 @@ local SDK check validates its field accesses and types. This is a deliberately
 conservative first implementation of the result conversion; it does not yet
 provide the per-interface iterator, WCL result publication, or scan completion
 notification. No macOS SDK compile has been run in this environment.
+
+The pinned WCL getter returns the literal status value `5` when its iterator
+reaches the end (including the empty-tree case). That is an observation about
+that implementation, not yet a verified public Sequoia contract. The native
+frontend must not copy the magic number: resolve the expected terminal
+`IOReturn` against the macOS 15.7 SDK/caller before selecting it. In particular,
+do not conflate iterator exhaustion with successful WMI completion or the
+separate WCL `ScanDone` notification.
