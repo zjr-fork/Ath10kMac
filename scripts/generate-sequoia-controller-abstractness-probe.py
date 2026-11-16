@@ -104,6 +104,8 @@ def main() -> int:
             '#include "apple80211_ioctl.h"',
             '#include "IO80211ControllerV2.h"',
             "",
+            "static_assert(sizeof(IO80211Controller) == 0x128, \"unexpected Sequoia IO80211Controller size\");",
+            "",
             "class QcaAirportControllerCompileProbe : public IO80211Controller {",
             "public:",
             *rendered,
