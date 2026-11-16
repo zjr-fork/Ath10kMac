@@ -54,15 +54,16 @@ int main() {
     if (!state.finish(104, Ath10kWCLJoinLifecycle::kTimedOut)) return 39;
 
     // Generation wrap skips zero and remains monotonic under serial arithmetic.
-    state.reset();
-    if (!state.begin(0xffffffffu)) return 40;
-    if (!state.finish(0xffffffffu, Ath10kWCLJoinLifecycle::kAborted)) return 41;
-    if (!state.begin(1)) return 42;
+    Ath10kWCLJoinLifecycle wrap;
+    if (!wrap.begin(0xffffffffu)) return 40;
+    if (!wrap.finish(0xffffffffu, Ath10kWCLJoinLifecycle::kAborted)) return 41;
+    if (!wrap.begin(1)) return 42;
 
+    // Reset invalidates callbacks but preserves the generation high-water mark.
     state.reset();
-    if (state.pending() || state.generation() != 1 ||
+    if (state.pending() || state.generation() != 104 ||
         state.terminal() != Ath10kWCLJoinLifecycle::kNone) return 43;
-    if (state.accepts(1) || state.begin(1)) return 44;
-    if (!state.begin(2)) return 45;
+    if (state.accepts(104) || state.begin(104)) return 44;
+    if (!state.begin(105)) return 45;
     return 0;
 }
