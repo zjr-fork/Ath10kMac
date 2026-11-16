@@ -326,3 +326,8 @@ by `ath10kBuildWCLScanResult`.
 
 Regression coverage is in `tests/test_wcl_scan_lifecycle.cpp` and is included
 in `scripts/test-native-bridge.sh`.
+
+
+## WCL message identifiers and hidden-SSID flag correction
+
+A second pinned-source audit confirmed the Sequoia WCL message identifiers: `ScanResult = 201` and `ScanDone = 237`. These are now named in the independent adapter header for use by a future publisher; the current helper still does not post messages. The reference publisher sets both `SSIDPresent` and `RSSIValid` for every accepted beacon, including a hidden SSID whose `ssidLength` is zero. The serializer now preserves that behavior: the presence flag describes the SSID field in the metadata record, not whether the SSID is non-empty. Regression coverage explicitly checks a zero-length hidden SSID with `SSIDPresent` retained. The RSSI-valid flag remains conditional on the native bridge's estimated-RSSI validity marker.
