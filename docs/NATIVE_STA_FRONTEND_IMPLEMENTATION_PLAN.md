@@ -122,6 +122,15 @@ Required next core work, after the Sequoia 15.7 candidate/key ABI is verified:
 
 ### Sequoia reference lead for association candidates (not yet approved for decoding)
 
+The pinned Sequoia 15 header declares the WCL virtual as
+`setWCL_ASSOCIATE(apple80211AssocCandidates*)` (CamelCase), while also
+forward-declaring a distinct-looking `apple80211_assoc_candidates` spelling
+for other interface declarations. The implementation must use the exact
+override type selected by the 15.7 target header; do not normalize these names
+or infer that the two incomplete struct tags are interchangeable. The
+candidate payload remains opaque at the public header boundary.
+
+
 A source-only inspection of the pinned itlwm commit found that its shared WCL
 decoder treats the opaque candidate buffer as follows: candidate count at
 `+0x214`, candidate records beginning at `+0x21c`, 18 bytes per record, and
@@ -132,15 +141,19 @@ at `+0xd4/+0xd6`. Its call site supplies a decode bound of `0x2cc`.
 
 These are useful reverse-engineering leads from the pinned Sequoia-compatible
 reference, not declarations in Apple's public headers and not a validated
-15.7 allocation contract. In particular, the decoder's count check permits
-10 entries but its own `0x2cc` length bound plus 18-byte records only fits 9;
-the mismatch must not be silently copied. Before enabling a production
-decoder, establish the exact 15.7 buffer extent, maximum candidate count,
-record stride, alignment, and whether the key/RSN fields are always present.
-Add a local SDK compile/layout probe and bounded synthetic tests for truncation,
-overflow, malformed BSSID, unsupported auth, and inconsistent candidate
-counts. Never dereference based only on a count field until the accessible
-extent is independently established.
+15.7 allocation contract. The decoder checks `count <= 10` and verifies
+`length >= 0x218 + count * 18`; its call site supplies `0x2cc`, which is
+exactly sufficient for ten 18-byte records beginning at `+0x218`. The first
+record's BSSID is read at `+0x21c`, i.e. four bytes into that record. This
+arithmetic is internally consistent, but the literal `0x2cc` is supplied by
+the reference call site rather than obtained from an Apple-declared buffer
+length. Before enabling a production decoder, establish that the 15.7 caller
+really guarantees at least `0x2cc` readable bytes, plus the exact record
+stride/alignment and whether key/RSN fields are always present. Add a local
+SDK compile/layout probe and bounded synthetic tests for truncation, overflow,
+malformed BSSID, unsupported auth, and inconsistent candidate counts. Never
+dereference based only on a count field until the accessible extent is
+independently established.
 
 The candidate key is not automatically a WPA2 passphrase: the reference
 decoder's supported personal path expects a 32-byte key material field with
