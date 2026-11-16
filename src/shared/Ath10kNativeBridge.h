@@ -100,8 +100,8 @@ typedef struct ATH10K_NATIVE_PACKED Ath10kNativeScanRequest {
     uint8_t has_bssid;
     uint8_t bssid[6];
     uint16_t channel_count;
-    uint16_t dwell_min_ms;
-    uint16_t dwell_max_ms;
+    uint16_t active_dwell_ms;
+    uint16_t passive_dwell_ms;
     Ath10kNativeSSID ssids[ATH10K_NATIVE_MAX_SCAN_SSIDS];
     uint16_t channels[ATH10K_NATIVE_MAX_SCAN_CHANNELS];
 } Ath10kNativeScanRequest;
@@ -168,7 +168,8 @@ static inline int ath10kNativeValidateScanRequest(const Ath10kNativeScanRequest 
         r->ssid_count > ATH10K_NATIVE_MAX_SCAN_SSIDS ||
         r->channel_count > ATH10K_NATIVE_MAX_SCAN_CHANNELS ||
         r->has_bssid > 1 ||
-        (r->dwell_min_ms && r->dwell_max_ms && r->dwell_min_ms > r->dwell_max_ms))
+        (r->active_dwell_ms && (r->active_dwell_ms < 40 || r->active_dwell_ms > 2000)) ||
+        (r->passive_dwell_ms && (r->passive_dwell_ms < 40 || r->passive_dwell_ms > 2000)))
         return 0;
     if (r->has_bssid) {
         uint8_t any = 0;
