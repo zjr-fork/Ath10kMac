@@ -280,3 +280,29 @@ A host-buildable regression test covers pending rejection, generation mismatch,
 sequential indices, empty scans, repeated end-of-iteration, and reset:
 `make check-native-scan-cursor`. The test was compiled and executed with a
 host C++17 compiler during development; this is not a macOS SDK or kext build.
+
+
+## WCL ScanResult payload adapter
+
+`src/kext/Ath10kWCLScanResult.hpp` defines an independently authored 64-byte
+macOS 15.2 `BeaconMetadata` prefix and a bounded serializer for the WCL
+`ScanResult` payload. The layout is based on the pinned Sequoia reference's
+field order with the non-15.2 reserved word omitted: RSSI offset 48, flags
+offset 60, total size 64. The observed WCL flags are SSID-present (bit 1) and
+RSSI-valid (bit 14); channel spec uses the observed 2.4/5 GHz encoding.
+
+The serializer:
+- validates SSID and IE lengths against the native snapshot's fixed arrays;
+- validates the complete IE TLV stream before writing anything;
+- rejects invalid channels and undersized destination buffers without emitting
+  a partial message;
+- copies the native snapshot's bounded IE bytes after the metadata prefix;
+- marks RSSI valid only when the native bridge explicitly marks it estimated;
+- leaves unavailable noise at zero and does not fabricate SNR;
+- does not rewrite WPA2/SAE transition IEs or otherwise mutate scan evidence.
+
+The WCL publisher must still verify that the record belongs to the active scan
+generation and obey the frontend's exactly-once ScanDone policy. This helper
+only builds a payload; it does not post messages or claim that a scan completed.
+Host regression coverage is in `tests/test_wcl_scan_result.cpp` and is also
+included by `scripts/test-native-bridge.sh`.
