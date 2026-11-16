@@ -7,6 +7,7 @@ static_assert(ATH10K_NATIVE_MAX_BSS_IE_BYTES == 512u, "bounded information eleme
 static_assert(sizeof(Ath10kNativeBSSRecord) == 597u, "BSS snapshot layout");
 static_assert(sizeof(Ath10kNativeScanStatus) == 16u, "scan status layout");
 static_assert(sizeof(Ath10kNativeLinkSnapshot) == 88u, "link snapshot layout");
+static_assert(sizeof(Ath10kNativeCapabilities) == 164u, "capabilities layout");
 static_assert(ATH10K_NATIVE_LINK_IDLE == 0 && ATH10K_NATIVE_LINK_CONNECTED == 3, "link state values");
 static_assert(offsetof(Ath10kNativeBSSRecord, capabilities) == 560u, "BSS capabilities offset");
 static_assert(offsetof(Ath10kNativeBSSRecord, rates) == 565u, "BSS rates offset");
