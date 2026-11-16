@@ -65,10 +65,11 @@ public:
         return true;
     }
 
-    // The caller must validate the selected BSSID and a post-begin serial.
+    // The caller supplies the live Beacon serial and its Join-start baseline.
     bool markFirstBeacon(uint32_t generation, bool matchesSelectedBSSID,
-                         bool observedAfterJoinStart) {
-        if (!matchesSelectedBSSID || !observedAfterJoinStart ||
+                         uint32_t observedSerial, uint32_t baselineSerial) {
+        if (!matchesSelectedBSSID ||
+            !isNewerGeneration(observedSerial, baselineSerial) ||
             !accepts(generation) || _firstBeacon)
             return false;
         _firstBeacon = true;
