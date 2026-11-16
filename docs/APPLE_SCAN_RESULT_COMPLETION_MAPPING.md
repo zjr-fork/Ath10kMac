@@ -306,3 +306,23 @@ generation and obey the frontend's exactly-once ScanDone policy. This helper
 only builds a payload; it does not post messages or claim that a scan completed.
 Host regression coverage is in `tests/test_wcl_scan_result.cpp` and is also
 included by `scripts/test-native-bridge.sh`.
+
+
+## Exactly-once WCL scan lifecycle guard
+
+`src/kext/Ath10kWCLScanLifecycle.hpp` adds a small generation-scoped state
+machine for the asynchronous WCL event path. It admits one pending scan,
+accepts result events only for that pending generation, and permits exactly one
+terminal transition (success, abort, timeout, or failure). Stale generations,
+duplicate terminal events, and result events after completion are rejected.
+Interface shutdown can reset the state under the same command gate.
+
+The helper intentionally does not own an IOTimerEventSource, post WCL messages,
+or translate terminal values to IOReturn. The future Skywalk frontend must
+serialize calls on its command gate, cancel its watchdog before posting the
+single ScanDone message, and derive the terminal outcome from the core's
+generation-checked scan status. Result publication remains separately bounded
+by `ath10kBuildWCLScanResult`.
+
+Regression coverage is in `tests/test_wcl_scan_lifecycle.cpp` and is included
+in `scripts/test-native-bridge.sh`.
