@@ -2587,6 +2587,31 @@ IOReturn Ath10kPCIDevice::nativeScanAction(OSObject *owner,void *input,void *abo
     if(!ath10kNativeValidateScanRequest(&request))return kIOReturnBadArgument;
     if(!self->_wmiLive.active || !self->_runtimeActive || self->_wmiEvents.rfKill)
         return kIOReturnNotReady;
+    UInt32 allowedChannels=0;
+    auto acceptChannel=[&](UInt32 channel)->bool {
+        UInt32 index=Ath10k::kWMIScanChannelCount;
+        for(UInt32 i=0;i<Ath10k::kWMIScanChannelCount;++i)
+            if(Ath10k::wmiScanChannel(i)==channel){index=i;break;}
+        if(index==Ath10k::kWMIScanChannelCount)return false;
+        if(!Ath10k::regulatoryScanChannel(self->_regulatory,channel))return true;
+        if(request.scan_type==ATH10K_NATIVE_SCAN_ACTIVE && !Ath10k::channelCanConnect(channel))return true;
+        for(UInt32 i=0;i<index;++i) {
+            (void)i;
+        }
+        ++allowedChannels;
+        return true;
+    };
+    if(request.channel_count) {
+        for(UInt32 i=0;i<request.channel_count;++i)
+            if(!acceptChannel(request.channels[i]))return kIOReturnBadArgument;
+    } else {
+        for(UInt32 i=0;i<Ath10k::kWMIScanChannelCount;++i)
+            if(!acceptChannel(Ath10k::wmiScanChannel(i)))return kIOReturnBadArgument;
+    }
+    if(!allowedChannels)return kIOReturnUnsupported;
+    const UInt32 frameBytes=140+4*allowedChannels+36*request.ssid_count;
+    if(!self->_wmiTxBuffer.allocated() || frameBytes>self->_wmiTxBuffer.length() ||
+       frameBytes-8>self->_htcWMIControl.maxMessageSize)return kIOReturnNoResources;
     auto &connection=self->_connection;
     if(self->_nativeScanRequestValid || !self->_wmiScan.completed ||
        connection.stats.step || connection.maintenance.step || connection.radio.step ||
@@ -2662,13 +2687,13 @@ const char *Ath10kPCIDevice::serviceWMIScan(UInt64 nowMs)
         state.submitted=true;state.status="waiting-for-scan-events";
         if(nativeRequest) {
             const auto *frame=static_cast<const UInt8 *>(_wmiTxBuffer.virtualAddress());
-            IOLog("Ath10kMac: WMI START_SCAN SUBMITTED id=0x%x origin=native type=%s channels=%u ssids=%u bssid-filter=%s active-dwell=%u passive-dwell=%u bytes=%u\\n",
+            IOLog("Ath10kMac: WMI START_SCAN SUBMITTED id=0x%x origin=native type=%s channels=%u ssids=%u bssid-filter=%s active-dwell=%u passive-dwell=%u bytes=%u\n",
                   state.id,_nativeScanRequest.scan_type==ATH10K_NATIVE_SCAN_ACTIVE?"active":"passive",
                   Ath10k::htcReadLE32(frame+80),_nativeScanRequest.ssid_count,
                   _nativeScanRequest.has_bssid?"yes":"no",Ath10k::htcReadLE32(frame+40),
                   Ath10k::htcReadLE32(frame+44),frameBytes);
         } else {
-            IOLog("Ath10kMac: WMI START_SCAN SUBMITTED id=0x%x request=0xa001 vdev=0 mode=%s channels=%u dwell=%u passive=yes sequence=9 bytes=%u credits=%u outstanding=%u\\n",
+            IOLog("Ath10kMac: WMI START_SCAN SUBMITTED id=0x%x request=0xa001 vdev=0 mode=%s channels=%u dwell=%u passive=yes sequence=9 bytes=%u credits=%u outstanding=%u\n",
                   state.id,fast?"initial-fast":"manual-full",Ath10k::regulatoryScanCountForMode(&_regulatory,fast),
                   fast?Ath10k::kWMIScanFastDwellMs:Ath10k::kWMIScanDwellMs,
                   frameBytes,_wmi.credits.available,_wmi.credits.outstanding);
