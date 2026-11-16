@@ -2700,9 +2700,11 @@ IOReturn Ath10kPCIDevice::nativeJoinAction(OSObject *owner,void *input,void *abo
        self->_wmi.credits.outstanding)return kIOReturnBusy;
 
     const Ath10k::WMIBSS *selected=nullptr;
-    UInt32 matches=0;
+    UInt32 bssidMatches=0,matches=0;
     for(UInt32 i=0;i<self->_wmiBSS.count;++i) {
         const auto &ap=self->_wmiBSS.entries[i];
+        if(!Ath10k::sameMAC(ap.bssid,request.bssid))continue;
+        ++bssidMatches;
         Ath10kNativeBSSRecord candidate{};
         for(UInt32 j=0;j<6;++j)candidate.bssid[j]=ap.bssid[j];
         candidate.ssid_length=ap.ssidLength;
@@ -2718,7 +2720,8 @@ IOReturn Ath10kPCIDevice::nativeJoinAction(OSObject *owner,void *input,void *abo
         if(!ath10kNativeOpenJoinMatchesBSS(&request,&candidate))continue;
         selected=&ap;++matches;
     }
-    if(matches!=1 || !selected)return kIOReturnNotFound;
+    if(bssidMatches!=1)return kIOReturnNotFound;
+    if(matches!=1 || !selected)return kIOReturnUnsupported;
 
     // Seed only the AP explicitly selected by macOS. selectOpenBSS below is
     // reused solely as the existing PHY/rate/regulatory validator; its BSSID
