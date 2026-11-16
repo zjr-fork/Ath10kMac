@@ -29,8 +29,8 @@ public:
     using Terminal = Ath10kWCLJoinLifecycle::Terminal;
 
     Ath10kNativeJoinObserver()
-        : _active(false), _secure(false), _associationSeen(false),
-          _beaconSeen(false), _authorizationSeen(false),
+        : _active(false), _secure(false), _coreStarted(false),
+          _associationSeen(false), _beaconSeen(false), _authorizationSeen(false),
           _baselineBeacon(0), _baselineSecurity(0), _generation(0) {
         for (uint32_t i = 0; i < 6; ++i) _bssid[i] = 0;
     }
@@ -39,13 +39,17 @@ public:
                bool secure, const Ath10kNativeJoinSnapshot &baseline) {
         if (_active || !generation || !validBSSID(selectedBSSID) ||
             baseline.secure > 1 || baseline.port_authorized > 1 ||
-            baseline.cancel_requested > 1 || baseline.reserved != 0)
+            baseline.cancel_requested > 1 || baseline.reserved != 0 ||
+            baseline.link_stage > ATH10K_JOIN_LINK_SCAN ||
+            baseline.disconnect_stage != 0 || baseline.cancel_requested ||
+            baseline.port_authorized || baseline.secure)
             return false;
         if (!_lifecycle.begin(generation)) return false;
         _generation = generation;
         _secure = secure;
         _baselineBeacon = baseline.station_beacon_serial;
         _baselineSecurity = baseline.security_generation;
+        _coreStarted = false;
         _associationSeen = _beaconSeen = _authorizationSeen = false;
         for (uint32_t i = 0; i < 6; ++i) _bssid[i] = selectedBSSID[i];
         _active = true;
@@ -62,6 +66,14 @@ public:
             return false;
 
         if (snapshot.cancel_requested || snapshot.disconnect_stage != 0) {
+            const bool finished = _lifecycle.finish(generation,
+                Ath10kWCLJoinLifecycle::kAborted);
+            if (finished) _active = false;
+            return finished;
+        }
+        if (snapshot.link_stage >= ATH10K_JOIN_LINK_START)
+            _coreStarted = true;
+        else if (_coreStarted) {
             const bool finished = _lifecycle.finish(generation,
                 Ath10kWCLJoinLifecycle::kAborted);
             if (finished) _active = false;
@@ -126,6 +138,7 @@ public:
     void reset() {
         _lifecycle.reset();
         _active = false;
+        _coreStarted = false;
         _associationSeen = _beaconSeen = _authorizationSeen = false;
         _generation = 0;
         _baselineBeacon = _baselineSecurity = 0;
@@ -157,6 +170,7 @@ private:
     Ath10kWCLJoinLifecycle _lifecycle;
     bool _active;
     bool _secure;
+    bool _coreStarted;
     bool _associationSeen;
     bool _beaconSeen;
     bool _authorizationSeen;
