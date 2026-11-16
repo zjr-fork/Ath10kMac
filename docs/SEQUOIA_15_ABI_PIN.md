@@ -11,6 +11,8 @@ Status: source audit complete; compile/runtime validation on macOS 15.7 remains 
 
 At this revision, the wrapper headers in `include/Airport/` select the Sequoia ABI only when `__IO80211_TARGET == __MAC_15_2`; otherwise the WCL wrapper selects the macOS 26 headers. Do not include the generic wrapper headers with an undefined or guessed target. Do not copy Tahoe declarations into this driver.
 
+The 12 `IO80211Controller` pure virtuals at this target are: `isCommandProhibited(int)`, `handleCardSpecific(IO80211SkywalkInterface*, unsigned long, void*, bool)`, the eight Apple80211 methods `getDRIVER_VERSION`, `getHARDWARE_VERSION`, `getCARD_CAPABILITIES`, `getPOWER`, `setPOWER`, `getCOUNTRY_CODE`, `setCOUNTRY_CODE`, `setGET_DEBUG_INFO` (each takes the interface pointer plus its Apple80211 data pointer), `getLogger() const -> CCLogStream*`, and `getFaultReporterFromDriver() -> CommonFaultReporter*`. The signatures and first-argument interface pointer are ABI-sensitive; do not substitute guessed overloads.
+
 The 15.2 header set is the available Sequoia-family reference. The target OS remains macOS 15.7+; the final binary must still be validated on 15.7 because a 15.2 header snapshot is not itself proof of runtime compatibility with every later Sequoia build.
 
 ## ABI facts observed at the pinned revision
@@ -36,7 +38,7 @@ The Sequoia `IO80211Controller` is derived from `IOEthernetController`, not from
 
 1. Include `<Airport/Apple80211.h>` with `AIRPORT_WCL` and `__IO80211_TARGET=__MAC_15_2` set consistently for every translation unit.
 2. Implement the concrete controller against the 15.2 `IO80211Controller` abstract contract, including logger and fault-reporter methods with their Sequoia-specific return types.
-3. Implement the concrete infrastructure interface against the 15.2 `IO80211InfraProtocol` contract. The reference subclass has many intentionally unsupported methods; unsupported features must return `kIOReturnUnsupported`, not fabricated success.
+3. Implement the concrete infrastructure interface against the 15.2 `IO80211InfraProtocol` contract (190 pure virtual methods in this snapshot). The reference subclass has many intentionally unsupported methods; unsupported features must return `kIOReturnUnsupported`, not fabricated success.
 4. Implement `setMacAddress(ether_addr&)` required by the Sequoia Skywalk base class.
 5. Preserve the WCL-specific scan, association, leave, join-abort, key and link-state entry points, but forward them to the versioned Ath10k bridge. They must not call PCI/WMI directly.
 6. Keep the 15.2 header snapshot as an external reference only; do not copy or vendor its GPL-2.0-only header/source files into this GPL-3.0 repository.
