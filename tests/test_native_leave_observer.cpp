@@ -28,6 +28,15 @@ int main() {
     auto malformed = idle;
     malformed.reserved = 1;
     assert(!observer.observe(7, malformed, result));
+    malformed = idle;
+    malformed.link_stage = 12;
+    assert(!observer.observe(7, malformed, result));
+    malformed = idle;
+    malformed.disconnect_stage = 8;
+    assert(!observer.observe(7, malformed, result));
+    malformed = idle;
+    malformed.port_authorized = 2;
+    assert(!observer.observe(7, malformed, result));
     assert(observer.active());
 
     // Port closure is only an intermediate state; the core still owns teardown.
@@ -39,7 +48,13 @@ int main() {
     assert(observer.observe(7, cancelled, result));
     assert(result == Ath10kNativeLeaveObserver::kPending && observer.active());
 
-    // Only the final Disabled + no-disconnect + unsecured snapshot completes.
+    // An otherwise-idle snapshot still cannot complete while cancellation is
+    // asserted; the core must publish its fully reset state.
+    auto resetting = snapshot(0, 0, false, false, true);
+    assert(observer.observe(7, resetting, result));
+    assert(result == Ath10kNativeLeaveObserver::kPending && observer.active());
+
+    // Only the final Disabled + no-disconnect + unsecured + uncancelled snapshot completes.
     assert(observer.observe(7, idle, result));
     assert(result == Ath10kNativeLeaveObserver::kSucceeded && !observer.active());
     assert(!observer.observe(7, idle, result));
