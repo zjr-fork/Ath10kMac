@@ -80,6 +80,7 @@ def main() -> int:
         generated = output.read_text(encoding="utf-8")
         if "sizeof(IO80211Controller) == 0x128" not in generated:
             raise SystemExit("controller probe omitted the pinned base-size assertion")
+        audited_original = declarations.copy()
         declarations[-1] = "virtual void * unexpectedLogger() = 0;"
         audited_header.write_text(
             "class IO80211Controller { public:\n"
@@ -91,7 +92,7 @@ def main() -> int:
 
         # A pure-virtual reorder preserves the count and method set but changes
         # vtable slots. The audited Sequoia contract must reject that drift too.
-        reordered = declarations.copy()
+        reordered = audited_original.copy()
         reordered[0], reordered[1] = reordered[1], reordered[0]
         audited_header.write_text(
             "class IO80211Controller { public:\n"
