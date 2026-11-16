@@ -98,6 +98,10 @@ $(OUT_BIN): Makefile $(OBJS) Ath10kMac.kext/Contents/Info.plist
 clean:
 	rm -rf $(BUILD_DIR)
 
+.PHONY: check-native-scan-builder
+check-native-scan-builder: check-sdk
+	$(CXX) $(CXXFLAGS) -fsyntax-only tests/test_native_scan_builder.cpp
+
 .PHONY: app
 app:
 	./scripts/build-connectivity.sh
