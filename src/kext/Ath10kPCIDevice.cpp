@@ -2601,7 +2601,7 @@ IOReturn Ath10kPCIDevice::nativeScanAction(OSObject *owner,void *input,void *abo
         UInt32 index=Ath10k::kWMIScanChannelCount;
         for(UInt32 i=0;i<Ath10k::kWMIScanChannelCount;++i)
             if(Ath10k::wmiScanChannel(i)==channel){index=i;break;}
-        if(index==Ath10k::kWMIScanChannelCount)return false;
+        if(index==Ath10k::kWMIScanChannelCount)return true;
         if(!Ath10k::regulatoryScanChannel(self->_regulatory,channel))return true;
         if(request.scan_type==ATH10K_NATIVE_SCAN_ACTIVE && !Ath10k::channelCanConnect(channel))return true;
         for(UInt32 i=0;i<allowedChannels;++i)if(acceptedChannels[i]==channel)return true;
