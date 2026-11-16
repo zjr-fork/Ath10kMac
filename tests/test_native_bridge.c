@@ -6,6 +6,8 @@ int main(void) {
     header.operation = ATH10K_NATIVE_OP_GET_LINK_SNAPSHOT;
     if (sizeof(header) != 20u) return 1;
     if (sizeof(Ath10kNativeLinkSnapshot) != 88u) return 2;
+    if (sizeof(Ath10kNativeJoinSnapshot) != 32u) return 13;
+    if (offsetof(Ath10kNativeJoinSnapshot, station_beacon_serial) != 8u) return 14;
     if (sizeof(Ath10kNativeCapabilities) != 164u) return 12;
     if (sizeof(Ath10kNativeScanStatus) != 16u) return 7;
     if (ATH10K_NATIVE_LINK_IDLE != 0 || ATH10K_NATIVE_LINK_CONNECTED != 3) return 11;
