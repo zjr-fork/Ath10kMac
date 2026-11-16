@@ -118,12 +118,20 @@ The host-testable `Ath10kNativeJoinObserver.hpp` now consumes only
 generation, selected BSSID, security mode and pre-join beacon/security serial
 baselines. The observer rejects stale generations, malformed snapshots,
 mismatched BSSIDs and pre-join beacons; it independently latches association,
-a post-begin selected-AP Beacon and controlled-port authorization. WPA2
-authorization must also advance the security serial. Open networks use the
+a post-begin selected-AP Beacon and controlled-port authorization. It also
+provides generation-checked abort and timeout terminals. WPA2 authorization
+must also advance the security serial. Open networks use the
 same authorization gate because the core explicitly opens their port when
 the association reaches Connected. Counter comparisons use half-range serial
 arithmetic that permits counter wrap through zero (operation generation zero
 remains reserved). This helper is not yet connected to Apple WCL callbacks.
+
+The snapshot action is serialized on `_wmiWorkLoop`; the runtime
+initialization assigns that loop from `getWorkLoop()`, and the PCI service's
+`getWorkLoop()` is the `_networkWorkLoop` created by the controller. Thus the
+runtime connection state machine and snapshot action share the controller
+work-loop gate once runtime is active. Early device/network preparation occurs
+before native requests are accepted and is not a concurrent Join observation.
 
 The PCI service now exposes `copyNativeJoinSnapshot()` as a value-only,
 work-loop-serialized observation API. Its fixed 32-byte structure carries the
