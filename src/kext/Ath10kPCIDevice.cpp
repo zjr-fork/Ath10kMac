@@ -2742,7 +2742,13 @@ IOReturn Ath10kPCIDevice::nativeJoinAction(OSObject *owner,void *input,void *abo
     connection.error="none";
     connection.cancelRequested=false;
     connection.disconnect=Ath10k::DisconnectStage::None;
+    connection.firmwareHT=self->_wmi.htCapability;
+    connection.firmwareVHT=self->_wmi.vhtCapability;
+    connection.rfChains=static_cast<UInt8>(self->_wmiInit.requestedChainMask==1?1:2);
     connection.regulatory=self->_regulatory;
+    // Match the capability snapshot used by serviceConnection() before
+    // invoking the same PHY/rate/regulatory preflight. The later Scan-stage
+    // transition repeats selection with this identical runtime snapshot.
     const char *selectionError=Ath10k::selectOpenBSS(connection,self->_wmiBSS);
     if(selectionError) {
         Ath10k::resetDisconnected(connection);
