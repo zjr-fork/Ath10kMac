@@ -46,6 +46,45 @@ def main() -> int:
         bad[bad.index("--expected") + 1] = "6"
         if subprocess.run(bad, capture_output=True).returncode == 0:
             raise SystemExit("generator accepted incorrect controller pure-virtual count")
+
+        audited_names = (
+            "isCommandProhibited", "handleCardSpecific", "getDRIVER_VERSION",
+            "getHARDWARE_VERSION", "getCARD_CAPABILITIES", "getPOWER",
+            "setPOWER", "getCOUNTRY_CODE", "setCOUNTRY_CODE",
+            "setGET_DEBUG_INFO", "getLogger", "getFaultReporterFromDriver",
+        )
+        declarations = []
+        for name in audited_names:
+            if name == "isCommandProhibited":
+                declarations.append(f"virtual bool {name}(int) = 0;")
+            elif name == "handleCardSpecific":
+                declarations.append(f"virtual SInt32 {name}(void*, unsigned long, void*, bool) = 0;")
+            elif name in ("getLogger", "getFaultReporterFromDriver"):
+                declarations.append(f"virtual void * {name}() = 0;")
+            else:
+                declarations.append(f"virtual IOReturn {name}(void*) = 0;")
+        audited_header = root / "AuditedController.h"
+        audited_header.write_text(
+            "class IO80211Controller { public:\\n"
+            + "\\n".join(declarations) + "\\n};\\n",
+            encoding="utf-8",
+        )
+        audited_command = [
+            sys.executable, str(script),
+            "--controller-header", str(audited_header),
+            "--output", str(output),
+            "--expected", "12",
+        ]
+        if subprocess.run(audited_command, capture_output=True).returncode:
+            raise SystemExit("generator rejected the audited 12-method controller contract")
+        declarations[-1] = "virtual void * unexpectedLogger() = 0;"
+        audited_header.write_text(
+            "class IO80211Controller { public:\\n"
+            + "\\n".join(declarations) + "\\n};\\n",
+            encoding="utf-8",
+        )
+        if subprocess.run(audited_command, capture_output=True).returncode == 0:
+            raise SystemExit("generator accepted a changed method set with the same pure-virtual count")
     print("Sequoia controller abstractness generator fixture tests passed.")
     return 0
 
