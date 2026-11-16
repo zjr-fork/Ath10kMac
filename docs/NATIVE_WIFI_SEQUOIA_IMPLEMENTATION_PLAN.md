@@ -98,3 +98,11 @@ Release acceptance requires a real macOS Wi-Fi interface (not an Ethernet servic
 - The current user-client `Scan` operation resets the internal BSS cache and increments a generation; it is not an Apple80211/WCL scan request implementation.
 - HTT RX currently normalizes/decapsulates data for Ethernet delivery; the existing Ethernet TX path calls `buildHTTPacket()` with Ethernet payload. Neither is proof of a native 802.11 data path.
 - Existing WPA2 key install, re-key, controlled-port gating and echo-barrier behavior should be preserved behind the bridge rather than rewritten in the frontend.
+
+
+## 9. Repository progress
+
+- Added `src/shared/Ath10kNativeBridge.h`: ABI v1 enums and bounded, pointer-free scan, BSS, key and link structures. C and C++ compile-time assertions pin the packed sizes and offsets.
+- Added standalone C and C++ layout/sanity tests plus `scripts/test-native-bridge.sh`, which runs them with the active Xcode toolchain on the target Mac.
+- The ABI is intentionally a data contract only at this stage. It is not yet wired to a cross-kext transport, and the existing PCI/network implementation has not been refactored. Do not load this header as a driver or infer native Wi-Fi support from its presence.
+- The bridge layout uses packed little-endian fields. Callers must validate `version`, `size`, `operation`, `payload_bytes`, all counts and all per-field bounds before accessing payloads; copy packed multi-byte values to aligned locals before arithmetic.
