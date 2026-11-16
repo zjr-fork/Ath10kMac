@@ -52,6 +52,8 @@ def main() -> int:
             raise SystemExit("missing Ethernet ABI header before Skywalk declarations")
         if "struct nicproxy_info_s;" not in generated:
             raise SystemExit("missing nicproxy_info_s pointer forward declaration")
+        if "struct apple80211_chip_stats;" not in generated:
+            raise SystemExit("missing opaque apple80211_chip_stats forward declaration")
 
         bad_command = command.copy()
         bad_command[bad_command.index("--expected-infra") + 1] = "3"
