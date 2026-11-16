@@ -148,4 +148,5 @@ check-native-wifi-milestone:
 	sh scripts/test-native-bridge.sh
 	$(MAKE) check-apple-scan-result-abi
 	SEQUOIA_HEADER_ROOT="$(SEQUOIA_HEADER_ROOT)" $(MAKE) check-sequoia-infra-abstractness
+	$(MAKE) clean
 	$(MAKE) kext
