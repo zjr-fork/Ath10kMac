@@ -25,6 +25,9 @@ struct NativeScanStatusArgs {
 struct NativeLinkSnapshotArgs {
     Ath10kNativeLinkSnapshot *snapshot;
 };
+struct NativeJoinSnapshotArgs {
+    Ath10kNativeJoinSnapshot *snapshot;
+};
 struct NativeCapabilitiesArgs {
     Ath10kNativeCapabilities *capabilities;
 };
@@ -2630,6 +2633,13 @@ IOReturn Ath10kPCIDevice::copyNativeLinkSnapshot(Ath10kNativeLinkSnapshot *snaps
     return _wmiWorkLoop->runAction(nativeLinkSnapshotAction,this,&args,nullptr,nullptr);
 }
 
+IOReturn Ath10kPCIDevice::copyNativeJoinSnapshot(Ath10kNativeJoinSnapshot *snapshot)
+{
+    if(!snapshot || !_wmiWorkLoop || isInactive())return kIOReturnBadArgument;
+    NativeJoinSnapshotArgs args{snapshot};
+    return _wmiWorkLoop->runAction(nativeJoinSnapshotAction,this,&args,nullptr,nullptr);
+}
+
 IOReturn Ath10kPCIDevice::getNativeCapabilities(Ath10kNativeCapabilities *capabilities)
 {
     if(!capabilities || !_wmiWorkLoop || isInactive())return kIOReturnBadArgument;
@@ -2721,6 +2731,30 @@ IOReturn Ath10kPCIDevice::nativeLinkSnapshotAction(OSObject *owner,void *input,v
     out.rx_packets=s.rxPackets;
     out.tx_bytes=s.txBytes;
     out.rx_bytes=s.rxBytes;
+    return kIOReturnSuccess;
+}
+
+IOReturn Ath10kPCIDevice::nativeJoinSnapshotAction(OSObject *owner,void *input,void *,void *,void *)
+{
+    auto *self=OSDynamicCast(Ath10kPCIDevice,owner);
+    if(!self || !input)return kIOReturnBadArgument;
+    auto &args=*static_cast<NativeJoinSnapshotArgs *>(input);
+    if(!args.snapshot)return kIOReturnBadArgument;
+
+    auto &out=*args.snapshot;
+    UInt8 *raw=reinterpret_cast<UInt8 *>(&out);
+    for(UInt32 i=0;i<sizeof(out);++i)raw[i]=0;
+    const auto &s=self->_connection;
+    out.link_stage=static_cast<UInt32>(s.stage);
+    out.association_status=s.associationStatus;
+    out.station_beacon_serial=s.stationBeaconSerial;
+    out.security_generation=s.securityGeneration;
+    out.disconnect_stage=static_cast<UInt32>(s.disconnect);
+    out.secure=s.secure?1u:0u;
+    out.port_authorized=s.portAuthorized?1u:0u;
+    out.cancel_requested=s.cancelRequested?1u:0u;
+    for(UInt32 i=0;i<6;++i)out.bssid[i]=s.bssid[i];
+    out.channel=s.operatingChannel<=0xffffu?static_cast<UInt16>(s.operatingChannel):0;
     return kIOReturnSuccess;
 }
 
