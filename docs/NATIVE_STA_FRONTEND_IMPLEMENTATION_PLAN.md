@@ -79,19 +79,21 @@ association completion while holding the interface gate.
 
 ## Native Join request gap discovered during source audit
 
-The existing connection engine is not yet a native-framework-driven Join API.
-In `Ath10kPCIDevice::serviceConnection()`, the `LinkStage::Scan` branch waits
-for the scan to finish and then calls `Ath10k::selectOpenBSS(s, _wmiBSS)`.
-That path chooses from the driver's BSS cache; it does not consume a
-framework-selected candidate, an explicit BSSID, or a copied Apple security
-profile. The native scan queue also rejects a new scan while a connection is
-in progress, but there is currently no symmetric `queueNativeJoinRequest()`
-entry point.
+The existing connection engine is not yet exposed as a native-framework-driven
+Join API. `prepareNetwork()` can seed connection state from driver personality
+properties (`Ath10kConnectSSID`, `Ath10kConnectBSSID` and power), then
+`Ath10kPCIDevice::serviceConnection()` waits for scan completion and calls
+`Ath10k::selectOpenBSS(s, _wmiBSS)`. This is a legacy configuration path, not
+an API that accepts the candidate selected by macOS in
+`setWCL_ASSOCIATE`; there is currently no symmetric
+`queueNativeJoinRequest()` entry point that copies and validates that
+framework-selected candidate and security profile.
 
 This is a functional blocker, not just a missing WCL notification. Wiring
-`setWCL_ASSOCIATE` to the existing automatic selection path would risk joining
-a different AP from the one macOS selected. The Join observer added earlier
-only observes completion facts; it does not initiate a connection.
+`setWCL_ASSOCIATE` to the legacy personality-property path without first
+transferring the selected candidate could join the wrong AP or use the wrong
+security profile. The Join observer added earlier only observes completion
+facts; it does not initiate a connection.
 
 Required next core work, after the Sequoia 15.7 candidate/key ABI is verified:
 
