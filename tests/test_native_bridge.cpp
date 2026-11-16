@@ -86,6 +86,32 @@ int main() {
         !ath10kNativeGenerationIsNewer(1u,0xffffffffu) ||
         ath10kNativeGenerationIsNewer(0x80000000u,0u)) return 21;
 
+    Ath10kNativeBSSRecord openBSS{};
+    openBSS.bssid[0]=0x02;openBSS.bssid[5]=0x01;
+    openBSS.ssid_length=3;openBSS.ssid[0]='a';openBSS.ssid[1]='p';openBSS.ssid[2]='1';
+    openBSS.capabilities=1;openBSS.beacon_interval=100;openBSS.rate_count=1;
+    openBSS.flags=ATH10K_NATIVE_BSS_RATES_VALID;
+    join.header.version=ATH10K_NATIVE_ABI_VERSION;
+    join.header.size=static_cast<uint16_t>(sizeof(join));
+    join.header.operation=ATH10K_NATIVE_OP_ASSOCIATE;
+    join.header.generation=1;join.header.payload_bytes=sizeof(join)-sizeof(join.header);
+    join.scan_generation=7;join.security_mode=ATH10K_NATIVE_SECURITY_OPEN;
+    join.ssid_length=3;join.bssid[0]=0x02;join.bssid[5]=0x01;
+    join.ssid[0]='a';join.ssid[1]='p';join.ssid[2]='1';
+    if (!ath10kNativeOpenJoinMatchesBSS(&join,&openBSS)) return 22;
+    openBSS.flags|=ATH10K_NATIVE_BSS_PRIVACY;
+    if (ath10kNativeOpenJoinMatchesBSS(&join,&openBSS)) return 23;
+    openBSS.flags=ATH10K_NATIVE_BSS_RATES_VALID|ATH10K_NATIVE_BSS_HAS_RSN;
+    if (ath10kNativeOpenJoinMatchesBSS(&join,&openBSS)) return 24;
+    openBSS.flags=ATH10K_NATIVE_BSS_RATES_VALID;
+    openBSS.capabilities=2;
+    if (ath10kNativeOpenJoinMatchesBSS(&join,&openBSS)) return 25;
+    openBSS.capabilities=1;openBSS.ssid[0]='x';
+    if (ath10kNativeOpenJoinMatchesBSS(&join,&openBSS)) return 26;
+    openBSS.ssid[0]='a';openBSS.flags|=ATH10K_NATIVE_BSS_HIDDEN;
+    openBSS.ssid_length=0;
+    if (!ath10kNativeOpenJoinMatchesBSS(&join,&openBSS)) return 27;
+
     Ath10kNativeJoinRequest join{};
     join.header.version=ATH10K_NATIVE_ABI_VERSION;
     join.header.size=static_cast<uint16_t>(sizeof(join));
