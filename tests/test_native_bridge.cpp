@@ -79,6 +79,13 @@ int main() {
     scan.active_dwell_ms = 200;
     if (!ath10kNativeValidateScanRequest(&scan)) return 7;
 
+    if (!ath10kNativeGenerationIsNewer(1u,0u) ||
+        !ath10kNativeGenerationIsNewer(2u,1u) ||
+        ath10kNativeGenerationIsNewer(1u,1u) ||
+        ath10kNativeGenerationIsNewer(0u,0xffffffffu) ||
+        !ath10kNativeGenerationIsNewer(1u,0xffffffffu) ||
+        ath10kNativeGenerationIsNewer(0x80000000u,0u)) return 21;
+
     Ath10kNativeJoinRequest join{};
     join.header.version=ATH10K_NATIVE_ABI_VERSION;
     join.header.size=static_cast<uint16_t>(sizeof(join));
