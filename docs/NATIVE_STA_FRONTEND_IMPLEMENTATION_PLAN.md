@@ -36,6 +36,13 @@ normalize similarly named aliases or overloads by guesswork.
 
 ## Callback rules
 
+The pinned reference routes WCL entry points through an interface command gate before
+switching on the operation. Ath10kMac should likewise serialize short interface
+state transitions (active generation, stop flag, cursor reset) on an interface
+work loop/gate. The gate action must only validate/copy input and enqueue the
+hardware-core operation; it must not wait for firmware, scan completion or
+association completion while holding the interface gate.
+
 1. Treat every framework-supplied pointer as borrowed. Validate null, size,
    counts, enums, lengths, alignment and nested offsets before reading it.
    Never store the pointer or pass it to asynchronous work.
