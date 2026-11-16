@@ -85,6 +85,13 @@ public:
 };
 #ifndef ATH10K_WMI_RUNTIME_TEST
 int main(){
+    UInt8 chainCount=99;
+    assert(Ath10k::wmiContiguousRFChainCount(1,chainCount) && chainCount==1);
+    assert(Ath10k::wmiContiguousRFChainCount(3,chainCount) && chainCount==2);
+    for(UInt32 invalid : {0u,2u,4u,5u,7u,0xffffffffu}) {
+        chainCount=99;
+        assert(!Ath10k::wmiContiguousRFChainCount(invalid,chainCount) && chainCount==0);
+    }
     InitDriver good;good.bootstrap();assert(good.runWMIInit());
     assert(good._wmiInit.completed && !good._htcCreditFlowDeferred);
     assert(!strcmp(good._wmi.status,"service-ready-before-reset"));
