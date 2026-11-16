@@ -95,3 +95,33 @@ registration, or correct behavior. The generated stubs all return
 `kIOReturnUnsupported` and are not a production implementation. A passing compile
 on the actual macOS 15.7 headers is required before writing the real interface.
 
+
+## Apple80211 command-handler surface is separate
+
+The 190 pure virtuals in the macOS 15.2 `IO80211InfraProtocol.h` are the WCL
+protocol contract. They are not the complete set of Apple80211 command handlers
+implemented by a concrete Skywalk interface. In the pinned WCL build, the concrete
+`AirportItlwmSkywalkInterface : IO80211InfraProtocol` additionally declares
+Apple80211 handlers such as:
+
+- Read path: `getSSID(apple80211_ssid_data*)`,
+  `getBSSID(apple80211_bssid_data*)`, `getSTATE(apple80211_state_data*)`,
+  `getCHANNEL(apple80211_channel_data*)`, `getRSSI(apple80211_rssi_data*)`,
+  `getNOISE(apple80211_noise_data*)`, and
+  `getSCAN_RESULT(apple80211_scan_result*)`.
+- Security/configuration path: `setCIPHER_KEY(apple80211_key*)`,
+  `setAUTH_TYPE(apple80211_authtype_data*)`, `setSSID(apple80211_ssid_data*)`,
+  `setSCAN_REQ(apple80211_scan_data*)`, `setASSOCIATE(apple80211_assoc_data*)`,
+  and `setDISASSOCIATE(apple80211_disassoc_data*)`.
+- WCL scan path (part of the 190-method protocol):
+  `setWCL_SCAN_REQ(apple80211ScanRequest*)` and
+  `setWCL_SCAN_ABORT(void*)`.
+
+The exact WCL target also has conditional declarations whose signatures differ
+from the non-WCL/macOS26 variants. In particular, do not copy an overload from a
+different preprocessor branch. The abstractness generator only proves that the
+protocol's pure-virtual contract is covered; it does not generate or validate the
+additional Apple80211 command-handler surface. The real frontend must implement
+both surfaces explicitly and compile under the exact `AIRPORT_WCL` and
+`__IO80211_TARGET=__MAC_15_2` defines.
+
