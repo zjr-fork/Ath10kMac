@@ -43,7 +43,7 @@ The existing builder emits an empty SSID array, one broadcast BSSID, and the pol
 - Compute frame size from the actual channel and SSID counts, check the HTC maximum message size and DMA buffer capacity before writing, and clear the entire frame before populating it.
 - Keep one WMI scan in flight. Do not mutate/reuse the shared buffer while CE3 owns it. On abort, preserve the existing ordering: START_SCAN descriptor consumed and HTC credit returned before STOP_SCAN is submitted.
 - Keep the random-probe MAC address/mask fields zero until random-address scanning is explicitly negotiated; ordinary scans use the firmware VDEV address.
-- A successful WMI transaction requires correlated STARTED/COMPLETED events and transport ownership completion. An empty BSS cache is a valid result, not proof that scan submission failed.
+- A successful WMI transaction requires correlated STARTED/COMPLETED events and transport ownership completion. An empty BSS cache is a valid result, not proof that scan submission failed. Firmware failure and timeout are reported separately from success; timeout requests STOP_SCAN and retains ownership until its completion/credit barrier.
 
 ## Current gap
 
