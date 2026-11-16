@@ -137,7 +137,34 @@ Required next core work, after the Sequoia 15.7 candidate/key ABI is verified:
    operation until the native path is independently tested; never let a native
    request silently fall through to `selectOpenBSS()`.
 
-### Pointer-free native Join request contract (core API not yet wired)
+### Pointer-free native Join request and core admission
+
+The shared ABI defines a fixed 64-byte `Ath10kNativeJoinRequest`. Its operation
+generation identifies the Join; `scan_generation` binds the selected AP to the
+exact completed scan; BSSID and SSID identify the AP selected by macOS. The
+validator accepts OPEN only, requires nonzero generations, a unicast nonzero
+BSSID, and an SSID length of 1..32. Generation ordering uses unsigned
+half-range serial arithmetic, including wraparound.
+
+The PCI core now exposes `queueNativeJoinRequest()` and
+`abortNativeJoinRequest()`, serialized on the WMI work loop. Admission requires
+a successful, non-cancelled native scan with the exact requested scan generation,
+an idle connection state, and an enabled network interface. It resolves exactly
+one BSS by BSSID and SSID (with a bounded hidden-SSID exception), rejects
+protected/WPA/RSN and non-infrastructure or incomplete-rate records, then seeds
+the existing station state with the selected AP. The existing `selectOpenBSS()`
+routine is reused as the final regulatory/channel/rate validator; it cannot
+silently select another BSSID. Failed preflight leaves the station disconnected.
+Join generations must be newer than the last accepted generation; abort is
+generation-checked and enters the existing cancellation/drain path.
+
+The C and C++ host ABI tests cover the request size and offsets, open-only
+validation, malformed BSSID/SSID/scan-generation cases, and serial wrap/half-range
+ordering. This is still not WCL callback wiring: the framework-facing interface
+must own its own generation and exactly-once completion observer, and the
+opaque Apple association-candidate buffer remains subject to the separate 15.7
+ABI proof. WPA2 stays unadvertised and rejected until credential ingress and
+the full EAPOL/key/controlled-port path are verified.
 
 The shared ABI now defines a fixed 64-byte `Ath10kNativeJoinRequest`:
 - the ordinary operation header carries the frontend Join generation;
