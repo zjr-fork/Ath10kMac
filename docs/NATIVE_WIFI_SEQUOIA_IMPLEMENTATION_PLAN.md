@@ -102,7 +102,9 @@ Release acceptance requires a real macOS Wi-Fi interface (not an Ethernet servic
 
 ## 9. Repository progress
 
-- Added `src/shared/Ath10kNativeBridge.h`: ABI v1 enums and bounded, pointer-free scan, BSS, key and link structures. C and C++ compile-time assertions pin the packed sizes and offsets.
-- Added standalone C and C++ layout/sanity tests plus `scripts/test-native-bridge.sh`, which runs them with the active Xcode toolchain on the target Mac.
-- The ABI is intentionally a data contract only at this stage. It is not yet wired to a cross-kext transport, and the existing PCI/network implementation has not been refactored. Do not load this header as a driver or infer native Wi-Fi support from its presence.
+- Added `src/shared/Ath10kNativeBridge.h`: ABI v1 enums and bounded, pointer-free scan, BSS, key and link structures. C and C++ compile-time assertions pin the packed sizes and offsets. Pure validation helpers reject malformed scan filters, dwell values, generations, key indexes and unsupported TKIP pairwise keys.
+- Added standalone C and C++ layout/sanity tests plus `scripts/test-native-bridge.sh`, which runs them with the active Xcode toolchain on the target Mac. Equivalent C and C++ validation snippets were compiled and executed in the development environment; the repository script still needs to be run on the target Mac.
+- Added `docs/SEQUOIA_15_ABI_PIN.md`: pinned `laobamac/itlwm` revision `7204c69d1bfa7f5cc0f7864e08fb03e55d0ec29e`, identified the `__IO80211_TARGET=__MAC_15_2` selection path and Sequoia ABI sizes/abstract-method surface. The reference is GPL-2.0-only, so its headers and implementation are not vendored into this GPL-3.0 project.
+- Added `docs/WMI_SCAN_REQUEST_MAPPING.md`: mapped the existing WMI-TLV START_SCAN fixed fields and channel/SSID/BSSID/IE arrays against Linux ath10k upstream revision `aebb7274476403040d582c61478df8f4a7bf9cd3`. The current builder still emits only its internal empty-SSID/broadcast-BSSID scan.
+- The ABI is intentionally a data contract only at this stage. It is not yet wired to a cross-kext transport, native scan serialization, or a native frontend, and the existing PCI/network implementation has not been refactored. Do not load this header as a driver or infer native Wi-Fi support from its presence.
 - The bridge layout uses packed little-endian fields. Callers must validate `version`, `size`, `operation`, `payload_bytes`, all counts and all per-field bounds before accessing payloads; copy packed multi-byte values to aligned locals before arithmetic.
