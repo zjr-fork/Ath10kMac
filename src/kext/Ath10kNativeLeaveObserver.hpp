@@ -18,16 +18,18 @@ public:
         kLastDisconnectStage = 7
     };
 
-    Ath10kNativeLeaveObserver() : _active(false), _generation(0) {}
+    Ath10kNativeLeaveObserver() : _active(false), _generation(0), _lastGeneration(0) {}
 
     bool begin(uint32_t generation, const Ath10kNativeJoinSnapshot &baseline) {
         if (_active || !generation ||
+            (_lastGeneration && !isNewerGeneration(generation, _lastGeneration)) ||
             baseline.link_stage > kFailedLinkStage || baseline.disconnect_stage > kLastDisconnectStage ||
             baseline.secure > 1 || baseline.port_authorized > 1 ||
             baseline.cancel_requested > 1 || baseline.reserved != 0 ||
             baseline.link_stage == kDisabledLinkStage)
             return false;
         _generation = generation;
+        _lastGeneration = generation;
         _active = true;
         return true;
     }
@@ -56,6 +58,12 @@ public:
     uint32_t generation() const { return _generation; }
 
 private:
+    static bool isNewerGeneration(uint32_t candidate, uint32_t current) {
+        const uint32_t delta = candidate - current;
+        return candidate != 0 && delta != 0 && delta < 0x80000000u;
+    }
+
     bool _active;
     uint32_t _generation;
+    uint32_t _lastGeneration;
 };
