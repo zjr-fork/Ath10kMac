@@ -137,3 +137,15 @@ check-wcl-scan-lifecycle: | $(BUILD_DIR)
 .PHONY: check-sequoia-probe-generator
 check-sequoia-probe-generator:
 	python3 tests/test_generate_sequoia_infra_probe.py
+
+
+# User-run milestone gate: host regressions, Apple ABI probes, infra concreteness,
+# then the complete kext link/symbol check on the local macOS 15.x toolchain.
+.PHONY: check-native-wifi-milestone
+check-native-wifi-milestone:
+	@test -n "$(SEQUOIA_HEADER_ROOT)" || \
+	  (echo "ERROR: pass SEQUOIA_HEADER_ROOT=/path/to/itlwm/include/Airport/macOS15"; exit 1)
+	sh scripts/test-native-bridge.sh
+	$(MAKE) check-apple-scan-result-abi
+	SEQUOIA_HEADER_ROOT="$(SEQUOIA_HEADER_ROOT)" $(MAKE) check-sequoia-infra-abstractness
+	$(MAKE) kext
