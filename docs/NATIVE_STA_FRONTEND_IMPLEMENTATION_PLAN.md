@@ -104,6 +104,15 @@ they must not be collapsed into the initial association callback:
   The frontend must observe the post-association transition, not infer
   authorization from a key command being queued or merely CE-consumed.
 
+`ConnectionState::stationBeaconSerial` is now a separate monotonic counter for
+actual Beacon subtype frames only; Probe Responses continue to increment the
+existing liveness counter but do not advance this join-specific counter. The
+new counter is preserved across `resetDisconnected()`, allowing a future Join
+request to snapshot a baseline and reject pre-request Beacon observations.
+The WCL join lifecycle accepts the Beacon event before or after the association
+completion event, but requires the caller to prove both selected-BSSID match
+and a post-begin Beacon serial.
+
 These are source-level observations of Ath10kMac's current core path, not a
 claim that the native WCL bridge already consumes them. The Join lifecycle
 tracker remains a host-tested value component and is not yet wired to the
