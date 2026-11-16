@@ -38,7 +38,7 @@ int main(void) {
     join.scan_generation = 3;
     join.security_mode = ATH10K_NATIVE_SECURITY_OPEN;
     join.ssid_length = 3;
-    join.bssid[0] = 0x02;
+    join.bssid[0] = 0x02; join.bssid[5] = 0x01;
     join.ssid[0] = 'a'; join.ssid[1] = 'p'; join.ssid[2] = '1';
     if (!ath10kNativeValidateJoinRequest(&join)) return 19;
     if (!ath10kNativeOpenJoinMatchesBSS(&join,&bss)) return 22;
