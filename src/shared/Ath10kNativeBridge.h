@@ -306,6 +306,8 @@ static_assert(offsetof(Ath10kNativeScanRequest, ssids) == 35, "native ABI scan S
 static_assert(offsetof(Ath10kNativeScanRequest, channels) == 563, "native ABI scan channel offset");
 static_assert(sizeof(Ath10kNativeScanRequest) == 691, "native ABI scan request size");
 static_assert(sizeof(Ath10kNativeBSSRecord) == 597, "native ABI BSS record size");
+static_assert(offsetof(Ath10kNativeBSSRecord, capabilities) == 560, "native ABI BSS capabilities offset");
+static_assert(offsetof(Ath10kNativeBSSRecord, rates) == 565, "native ABI BSS rates offset");
 static_assert(sizeof(Ath10kNativeKeyRequest) == 70, "native ABI key request size");
 static_assert(sizeof(Ath10kNativeLinkSnapshot) == 88, "native ABI link snapshot size");
 #else
@@ -316,6 +318,8 @@ _Static_assert(offsetof(Ath10kNativeScanRequest, ssids) == 35, "native ABI scan 
 _Static_assert(offsetof(Ath10kNativeScanRequest, channels) == 563, "native ABI scan channel offset");
 _Static_assert(sizeof(Ath10kNativeScanRequest) == 691, "native ABI scan request size");
 _Static_assert(sizeof(Ath10kNativeBSSRecord) == 597, "native ABI BSS record size");
+_Static_assert(offsetof(Ath10kNativeBSSRecord, capabilities) == 560, "native ABI BSS capabilities offset");
+_Static_assert(offsetof(Ath10kNativeBSSRecord, rates) == 565, "native ABI BSS rates offset");
 _Static_assert(sizeof(Ath10kNativeKeyRequest) == 70, "native ABI key request size");
 _Static_assert(sizeof(Ath10kNativeLinkSnapshot) == 88, "native ABI link snapshot size");
 #endif
