@@ -18,7 +18,7 @@ int main() {
 
     // Duplicate events are rejected and cannot change the state.
     if (state.markAssociation(100, true)) return 11;
-    if (state.markFirstBeacon(100)) return 11;
+    if (state.markFirstBeacon(100, true)) return 12;
     if (!state.markPortAuthorized(100)) return 13;
     if (!state.readyToComplete(100)) return 14;
     if (!state.finish(100, Ath10kWCLJoinLifecycle::kSucceeded)) return 15;
@@ -27,7 +27,7 @@ int main() {
 
     // A later generation starts clean; old-generation callbacks are harmless.
     if (!state.begin(101)) return 17;
-    if (state.accepts(100) || state.markFirstBeacon(100) || state.markPortAuthorized(100)) return 18;
+    if (state.accepts(100) || state.markFirstBeacon(100, true) || state.markPortAuthorized(100)) return 18;
     if (state.readyToComplete(101)) return 19;
     if (!state.markPortAuthorized(101)) return 20;
     if (!state.markFirstBeacon(101, true)) return 21;
