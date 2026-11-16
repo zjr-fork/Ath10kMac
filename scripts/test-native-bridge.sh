@@ -43,4 +43,4 @@ fi
 "$TMP/test-wcl-join-lifecycle"
 "$TMP/test-wcl-scan-lifecycle"
 make -C "$ROOT" check-native-scan-builder
-echo "Native bridge ABI, scan cursor, WCL result serializer/scan+join lifecycle/Join+Scan snapshot observers, and native WMI scan builder checks: PASS"
+echo "Native bridge ABI, exact open-BSS Join matching, scan cursor, WCL result serializer/scan+join lifecycle/Join+Scan snapshot observers, and native WMI scan builder checks: PASS"
