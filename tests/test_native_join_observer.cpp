@@ -86,6 +86,15 @@ int main() {
     if (!wrap.observe(50, snap) ||
         wrap.terminal() != Ath10kWCLJoinLifecycle::kSucceeded) return 18;
 
+    Ath10kNativeJoinObserver timeout;
+    if (!timeout.begin(45, ap, false, base)) return 19;
+    if (timeout.abort(44) || !timeout.timeout(45) || timeout.active() ||
+        timeout.terminal() != Ath10kWCLJoinLifecycle::kTimedOut) return 20;
+    Ath10kNativeJoinObserver explicitAbort;
+    if (!explicitAbort.begin(46, ap, false, base)) return 21;
+    if (!explicitAbort.abort(46) || explicitAbort.active() ||
+        explicitAbort.terminal() != Ath10kWCLJoinLifecycle::kAborted) return 22;
+
     Ath10kNativeJoinObserver invalid;
     const uint8_t multicast[6] = {0x01,0,0,0,0,1};
     if (invalid.begin(60, multicast, false, baseline())) return 19;
@@ -93,6 +102,6 @@ int main() {
     if (!invalid.begin(60, ap, false, base)) return 20;
     snap = observation(ATH10K_JOIN_LINK_CONNECTED, 8, 20, false, true, ap);
     snap.reserved = 1;
-    if (invalid.observe(60, snap)) return 21;
+    if (invalid.observe(60, snap)) return 25;
     return 0;
 }
