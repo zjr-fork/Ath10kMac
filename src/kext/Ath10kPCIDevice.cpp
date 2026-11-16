@@ -2689,8 +2689,10 @@ IOReturn Ath10kPCIDevice::nativeJoinAction(OSObject *owner,void *input,void *abo
     if(!ath10kNativeValidateJoinRequest(&request))return kIOReturnBadArgument;
     if(!ath10kNativeGenerationIsNewer(request.header.generation,self->_nativeJoinGeneration))
         return kIOReturnNotFound;
-    if(!self->_nativeScanRequestValid ||
-       self->_nativeScanRequest.header.generation!=request.scan_generation ||
+    // _nativeScanRequestValid is intentionally cleared when scan transport
+    // reaches its terminal state; the retained request value plus nativeRequest
+    // marker and scan generation identify the completed native scan.
+    if(self->_nativeScanRequest.header.generation!=request.scan_generation ||
        !self->_wmiScan.nativeRequest ||
        self->_wmiScan.generation!=request.scan_generation || !self->_wmiScan.completed ||
        self->_wmiScan.failed || self->_wmiScan.timedOut || self->_wmiScan.cancelRequested ||
