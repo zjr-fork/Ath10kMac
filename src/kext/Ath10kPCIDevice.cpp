@@ -2658,8 +2658,10 @@ IOReturn Ath10kPCIDevice::nativeBSSAction(OSObject *owner,void *input,void *,voi
     if(b.ratesValid)out.flags|=ATH10K_NATIVE_BSS_RATES_VALID;
     out.flags|=ATH10K_NATIVE_BSS_RSSI_ESTIMATED;
     out.channel=static_cast<UInt16>(b.rxChannel);
-    const UInt32 frequencyIndex=Ath10k::wmiScanFrequencyIndex(b.rxChannel);
-    out.frequency_mhz=static_cast<UInt16>(Ath10k::wmiScanFrequency(frequencyIndex));
+    UInt32 frequency=0;
+    for(UInt32 i=0;i<Ath10k::kWMIScanChannelCount;++i)
+        if(Ath10k::wmiScanChannel(i)==b.rxChannel){frequency=Ath10k::wmiScanFrequency(i);break;}
+    out.frequency_mhz=static_cast<UInt16>(frequency);
     const SInt32 estimate=b.snr>127u?-127:(static_cast<SInt32>(b.snr)-95);
     out.rssi_dbm=static_cast<SInt8>(estimate<-127?-127:(estimate>0?0:estimate));
     out.noise_dbm=0; // Per-BSS noise is not measured by this firmware event.
