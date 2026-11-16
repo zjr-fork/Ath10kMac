@@ -128,6 +128,12 @@ check-wcl-scan-result: | $(BUILD_DIR)
 	$(BUILD_DIR)/test-wcl-scan-result
 	rm -f $(BUILD_DIR)/test-wcl-scan-result
 
+.PHONY: check-wcl-scan-lifecycle
+check-wcl-scan-lifecycle: | $(BUILD_DIR)
+	$(CXX) -std=c++17 -Wall -Wextra -Werror tests/test_wcl_scan_lifecycle.cpp -o $(BUILD_DIR)/test-wcl-scan-lifecycle
+	$(BUILD_DIR)/test-wcl-scan-lifecycle
+	rm -f $(BUILD_DIR)/test-wcl-scan-lifecycle
+
 .PHONY: check-sequoia-probe-generator
 check-sequoia-probe-generator:
 	python3 tests/test_generate_sequoia_infra_probe.py
