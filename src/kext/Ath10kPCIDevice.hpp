@@ -51,6 +51,7 @@ public:
     IOReturn queueNativeScanRequest(const Ath10kNativeScanRequest *,UInt32 *generationOut=nullptr);
     IOReturn queueNativeJoinRequest(const Ath10kNativeJoinRequest *);
     IOReturn abortNativeJoinRequest(UInt32 generation);
+    IOReturn requestNativeLeave(UInt32 generation);
     IOReturn abortNativeScanRequest(UInt32 generation);
     IOReturn abortCurrentNativeScanRequest();
     IOReturn copyNativeBSSRecord(UInt32 generation,UInt32 index,Ath10kNativeBSSRecord *,UInt32 *countOut);
