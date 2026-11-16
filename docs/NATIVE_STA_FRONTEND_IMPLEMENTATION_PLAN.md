@@ -102,6 +102,15 @@ connection as an error. A stale generation or a competing non-native
 cancellation is rejected. This is a core-side primitive only; the WCL leave
 callback and its terminal completion message are not wired.
 
+The shared Join/abort/Leave work-loop action now uses an explicit
+`NativeJoinActionKind` plus a bounded stack argument record instead of
+integer-to-pointer sentinels. The action validates the operation kind before
+reading operation-specific fields, and checks that a queued request's copied
+generation agrees with the request header before admission. All three operations
+remain synchronous work-loop actions; the request pointer is consumed only
+during that action and is not retained. This removes an implicit dispatch
+encoding but does not change the WCL integration or completion status.
+
 The host-testable `Ath10kNativeLeaveObserver` now waits for the pointer-free
 Join snapshot to reach the final reset state (Disabled, no disconnect stage,
 unsecured, unauthorized and no cancellation still asserted) before allowing a
