@@ -26,7 +26,8 @@ public:
             baseline.link_stage > kFailedLinkStage || baseline.disconnect_stage > kLastDisconnectStage ||
             baseline.secure > 1 || baseline.port_authorized > 1 ||
             baseline.cancel_requested > 1 || baseline.reserved != 0 ||
-            baseline.link_stage == kDisabledLinkStage)
+            baseline.link_stage == kDisabledLinkStage ||
+            baseline.disconnect_stage != 0 || baseline.cancel_requested != 0)
             return false;
         _generation = generation;
         _lastGeneration = generation;
