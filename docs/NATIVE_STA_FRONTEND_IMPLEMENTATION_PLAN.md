@@ -76,6 +76,41 @@ association completion while holding the interface gate.
 - Link snapshot and capabilities value structures.
 - Existing WPA2/CCMP key installation and controlled-port authorization.
 
+## Existing core join-completion evidence
+
+The existing station state machine in `src/kext/Ath10kNetwork.cpp` provides
+three distinct observations that a future native interface bridge can consume;
+they must not be collapsed into the initial association callback:
+
+- **Association transaction:** the serial connection path advances through
+  authentication, association response, peer association, vdev-up and the
+  connection ECHO barrier. Only after the required replies/barrier does it
+  advance into `LinkStage::Connected`. This is the earliest reliable point
+  to call `markAssociation(generation, true)`; request acceptance or the
+  802.11 association response alone is insufficient.
+- **Selected-AP beacon:** `receiveStationManagement()` first validates both
+  transmitter and BSSID addresses against the selected `s.bssid`, rejects
+  frames from other channels, and increments `beaconSerial` for beacon /
+  active-probe-response observations. For the Join lifecycle, only an actual
+  Beacon subtype (not a probe response) should satisfy
+  `markFirstBeacon()`. The frontend needs a per-association baseline so a
+  beacon observed during the preceding scan cannot satisfy a new join.
+- **Controlled-port authorization:** for WPA2, the core installs the PTK and
+  GTK, consumes the matching HTT security indications, advances through the
+  firmware ECHO barrier, and only then sets `portAuthorized=true` and
+  increments `securityGeneration`. For an open network, the port is opened
+  when the completed association transaction enters `LinkStage::Connected`.
+  The frontend must observe the post-association transition, not infer
+  authorization from a key command being queued or merely CE-consumed.
+
+These are source-level observations of Ath10kMac's current core path, not a
+claim that the native WCL bridge already consumes them. The Join lifecycle
+tracker remains a host-tested value component and is not yet wired to the
+controller/interface objects. A future bridge should snapshot the association
+generation, beacon counter baseline, `securityGeneration`, `secure`, and
+`portAuthorized` under the core work-loop gate, then translate only
+generation-matched transitions into lifecycle events.
+
 ## Not yet proven / implementation blockers
 
 - Exact local 15.7 typedef spellings and override signatures for all selected WCL
