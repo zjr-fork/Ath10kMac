@@ -102,14 +102,21 @@ connection as an error. A stale generation or a competing non-native
 cancellation is rejected. This is a core-side primitive only; the WCL leave
 callback and its terminal completion message are not wired.
 
+The admission path validates the firmware RF-chain mask into a local
+value before mutating `ConnectionState`; an invalid mask therefore leaves the
+connection state untouched rather than returning NotReady with a partially
+seeded station record.
+
 The shared Join/abort/Leave work-loop action now uses an explicit
 `NativeJoinActionKind` plus a bounded stack argument record instead of
 integer-to-pointer sentinels. The action validates the operation kind before
 reading operation-specific fields, and checks that a queued request's copied
-generation agrees with the request header before admission. All three operations
-remain synchronous work-loop actions; the request pointer is consumed only
-during that action and is not retained. This removes an implicit dispatch
-encoding but does not change the WCL integration or completion status.
+generation agrees with the request header before admission. The fixed-size
+Join request is copied by value into the synchronous work-loop argument record,
+so the action does not dereference or retain the caller's request pointer. All
+three operations remain serialized work-loop actions. This removes an implicit
+dispatch encoding and closes the caller-buffer lifetime/TOCTOU window, but does
+not change the WCL integration or completion status.
 
 The host-testable `Ath10kNativeLeaveObserver` now waits for the pointer-free
 Join snapshot to reach the final reset state (Disabled, no disconnect stage,
