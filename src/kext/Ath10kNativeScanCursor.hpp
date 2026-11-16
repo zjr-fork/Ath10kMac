@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stdint.h>
+#include "../shared/Ath10kNativeBridge.h"
 
 /*
  * Per-interface, generation-scoped iterator state for Apple scan results.
@@ -30,7 +31,7 @@ public:
 
     bool begin(uint32_t generation, uint32_t scanState, uint32_t resultCount) {
         reset();
-        if (!generation || scanState != 1u) // ATH10K_NATIVE_SCAN_SUCCEEDED
+        if (!generation || scanState != ATH10K_NATIVE_SCAN_SUCCEEDED)
             return false;
         _generation = generation;
         _count = resultCount;
