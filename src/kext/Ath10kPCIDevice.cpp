@@ -2703,20 +2703,22 @@ IOReturn Ath10kPCIDevice::nativeJoinAction(OSObject *owner,void *input,void *abo
     UInt32 matches=0;
     for(UInt32 i=0;i<self->_wmiBSS.count;++i) {
         const auto &ap=self->_wmiBSS.entries[i];
-        if(!Ath10k::sameMAC(ap.bssid,request.bssid))continue;
-        const bool hidden=ap.hidden && ap.ssidLength==0;
-        bool ssidMatches=hidden || ap.ssidLength==request.ssid_length;
-        if(ssidMatches && !hidden)
-            for(UInt32 j=0;j<request.ssid_length;++j)
-                if(ap.ssid[j]!=request.ssid[j]){ssidMatches=false;break;}
-        if(!ssidMatches)continue;
+        Ath10kNativeBSSRecord candidate{};
+        for(UInt32 j=0;j<6;++j)candidate.bssid[j]=ap.bssid[j];
+        candidate.ssid_length=ap.ssidLength;
+        for(UInt32 j=0;j<ap.ssidLength && j<ATH10K_NATIVE_MAX_SSID;++j)candidate.ssid[j]=ap.ssid[j];
+        if(ap.hidden)candidate.flags|=ATH10K_NATIVE_BSS_HIDDEN;
+        if(ap.privacy)candidate.flags|=ATH10K_NATIVE_BSS_PRIVACY;
+        if(ap.rsnPresent)candidate.flags|=ATH10K_NATIVE_BSS_HAS_RSN;
+        if(ap.wpaPresent)candidate.flags|=ATH10K_NATIVE_BSS_HAS_WPA;
+        if(ap.ratesValid)candidate.flags|=ATH10K_NATIVE_BSS_RATES_VALID;
+        candidate.capabilities=ap.capabilities;
+        candidate.beacon_interval=ap.beaconInterval;
+        candidate.rate_count=ap.rateCount;
+        if(!ath10kNativeOpenJoinMatchesBSS(&request,&candidate))continue;
         selected=&ap;++matches;
     }
     if(matches!=1 || !selected)return kIOReturnNotFound;
-    if(selected->privacy || selected->rsnPresent || selected->wpaPresent ||
-       !(selected->capabilities&1u) || (selected->capabilities&2u) ||
-       !selected->beaconInterval || !selected->rateCount || !selected->ratesValid)
-        return kIOReturnUnsupported;
 
     // Seed only the AP explicitly selected by macOS. selectOpenBSS below is
     // reused solely as the existing PHY/rate/regulatory validator; its BSSID
