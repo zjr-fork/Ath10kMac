@@ -94,6 +94,14 @@ validation, never as a fallback to another AP. The API has not yet been wired
 to `setWCL_ASSOCIATE`, and its kernel-side behavior has not yet been built or
 runtime-tested.
 
+The PCI core now also exposes `requestNativeLeave(generation)`. It accepts only
+the currently active native Join generation, is idempotent for an already
+started native Leave, and routes through the existing cancellation/drain and
+peer/vdev teardown state machine. Unlike Join-abort, Leave does not mark the
+connection as an error. A stale generation or a competing non-native
+cancellation is rejected. This is a core-side primitive only; the WCL leave
+callback and its terminal completion message are not wired.
+
 The separate WPA2 limitation remains unchanged. The core still lacks a verified
 macOS credential/key-material ingress that drives the complete EAPOL/4-way
 handshake and controlled-port path. The existing key installation primitives
