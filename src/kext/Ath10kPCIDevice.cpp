@@ -2670,7 +2670,7 @@ IOReturn Ath10kPCIDevice::nativeJoinAction(OSObject *owner,void *input,void *abo
     if(!self || !input)return kIOReturnBadArgument;
     if(!self->_nativeCoreReady || !self->_wmiLive.active || !self->_runtimeActive ||
        !self->_wmiInit.ready || !self->_wmiScanChannels.completed ||
-       !self->_networkEnabled || self->_dmaQuarantine)return kIOReturnNotReady;
+       self->_dmaQuarantine)return kIOReturnNotReady;
     auto &connection=self->_connection;
     if(abortFlag) {
         const UInt32 generation=*static_cast<const UInt32 *>(input);
@@ -2682,10 +2682,13 @@ IOReturn Ath10kPCIDevice::nativeJoinAction(OSObject *owner,void *input,void *abo
         return kIOReturnSuccess;
     }
 
-    const auto &request=*static_cast<const NativeJoinQueueArgs *>(input)->request;
+    if(!self->_networkEnabled)return kIOReturnNotReady;
+    const auto *joinArgs=static_cast<const NativeJoinQueueArgs *>(input);
+    if(!joinArgs->request)return kIOReturnBadArgument;
+    const auto &request=*joinArgs->request;
     if(!ath10kNativeValidateJoinRequest(&request))return kIOReturnBadArgument;
-    const UInt32 delta=request.header.generation-self->_nativeJoinGeneration;
-    if(!delta || delta>=0x80000000u)return kIOReturnNotFound;
+    if(!ath10kNativeGenerationIsNewer(request.header.generation,self->_nativeJoinGeneration))
+        return kIOReturnNotFound;
     if(self->_wmiScan.generation!=request.scan_generation || !self->_wmiScan.completed ||
        self->_wmiScan.failed || self->_wmiScan.timedOut || self->_wmiScan.cancelRequested)
         return kIOReturnNotReady;
