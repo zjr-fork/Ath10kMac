@@ -13,8 +13,10 @@
  *   2. the first beacon from the selected BSSID was received;
  *   3. the controlled port/key authorization barrier completed.
  *
- * Event order is deliberately unconstrained. The caller publishes the
- * terminal WCL completion only when readyToComplete() becomes true.
+ * Authorization may arrive before or after the beacon. The beacon latch is
+ * intentionally accepted only after association succeeds, so a beacon seen
+ * during the preceding scan cannot satisfy this join. The caller publishes
+ * success only when readyToComplete() becomes true.
  */
 class Ath10kWCLJoinLifecycle {
 public:
@@ -97,7 +99,8 @@ public:
     }
 
     void reset() {
-        _generation = 0;
+        // Preserve the last generation so a stopped/reused object cannot
+        // accidentally accept a delayed callback from an earlier operation.
         _pending = false;
         _associationReported = false;
         _associationSucceeded = false;
