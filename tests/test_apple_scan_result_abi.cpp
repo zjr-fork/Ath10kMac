@@ -1,6 +1,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <IOKit/80211/apple80211_var.h>
+#include "../src/kext/Ath10kAppleScanResult.hpp"
 
 static_assert(sizeof(void *) == 8, "This ABI probe targets x86_64");
 static_assert(offsetof(apple80211_scan_result, version) == 0x00, "version offset");
