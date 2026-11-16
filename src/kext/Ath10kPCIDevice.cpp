@@ -2030,7 +2030,7 @@ const char *Ath10kPCIDevice::serviceWMIEcho(UInt64 nowMs)
             !_wmiInit.txConsumed || !_wmi.rxOwned || !_runtimeCE1Armed || _dmaQuarantine ||
             !_htcWMIControl.connected || _htcWMIControl.uplinkPipe!=3 ||
             _htcWMIControl.maxMessageSize<12 || _wmi.credits.outstanding ||
-            !_wmiTxBuffer.allocated() || !_ceSrcRings[3].allocated()) return _wmiEcho.status;
+            !_wmiTxBuffer.allocated() || !self->_ceSrcRings[3].allocated()) return _wmiEcho.status;
         Ath10k::CESnapshot snap{};
         const UInt32 entries=Ath10k::kCEHostConfig[3].srcEntries;
         _wmiEcho.status="wmi-echo-ce3-state";
