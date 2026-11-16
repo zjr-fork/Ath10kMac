@@ -88,7 +88,7 @@ The pinned controller header exposes the following non-pure framework entry poin
 
 These declarations establish where the framework-facing relationship lives, but do **not** establish who allocates the primary interface, whether the driver must call `attachInterface`, what the `OSObject *` argument represents, or when detach completes relative to provider stop/free. The implementation must not guess those semantics or manually allocate a second primary interface based only on the accessor.
 
-The same header pins `sizeof(IO80211Controller) == 0x128`; the Skywalk and InfraProtocol headers pin `0x118` and `0x120` respectively. These are reference-header assertions, not proof that a subclass compiled against a different local point release has matching member offsets. The local Sequoia compile probe must check these sizes directly, and runtime registration still needs validation on 15.7.
+The same header pins `sizeof(IO80211Controller) == 0x128`; the Skywalk and InfraProtocol headers pin `0x118` and `0x120` respectively. These are reference-header assertions, not proof that a subclass compiled against a different local point release has matching member offsets. The generated local Sequoia compile probes now explicitly assert these three base sizes (`IO80211Controller == 0x128`, `IO80211SkywalkInterface == 0x118`, and `IO80211InfraProtocol == 0x120`) in addition to compiling concrete subclasses. These checks prove the base declarations seen by that compiler, not subclass member offsets or runtime registration; runtime behavior still needs validation on 15.7.
 
 **Integration rule:** treat the controller and primary infra interface as two framework-managed objects with distinct lifetimes. Before implementing either production class, trace the local header/API contract for primary-interface creation, attachment, start ordering, stop ordering, and detach completion. Keep the PCI device/core as the hardware provider; do not let the interface own or free the PCI device's DMA/WMI state.
 
@@ -148,3 +148,8 @@ production integration, verify which legacy `IONetworkController` attachment
 steps are still required for the exact macOS 15.7 SDK and whether the local
 headers expose the same overloads. Do not assume the reference implementation's
 registration internals or private fields are safe to reproduce.
+
+
+## Probe hardening update
+
+The controller and InfraProtocol probe generators now emit explicit base-size static assertions in addition to `std::is_abstract` checks. Their fixture tests also exercise same-count virtual-slot reorder rejection; the InfraProtocol test constructs the complete audited 190-name fixture before swapping two slots, so the failure specifically tests order drift rather than a changed method set. These are generator/source changes only; the tests must still be run on the user's checkout.
