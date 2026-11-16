@@ -89,7 +89,7 @@ public:
         }
 
         if (!_beaconSeen &&
-            Ath10kWCLJoinLifecycle::isNewerGeneration(
+            Ath10kWCLJoinLifecycle::isNewerSerial(
                 snapshot.station_beacon_serial, _baselineBeacon) &&
             sameBSSID(snapshot.bssid, _bssid)) {
             _beaconSeen = _lifecycle.markFirstBeacon(
@@ -109,7 +109,7 @@ public:
         }
 
         const bool securityBarrier = !_secure ||
-            Ath10kWCLJoinLifecycle::isNewerGeneration(
+            Ath10kWCLJoinLifecycle::isNewerSerial(
                 snapshot.security_generation, _baselineSecurity);
         if (!_authorizationSeen && snapshot.port_authorized && securityBarrier)
             _authorizationSeen = _lifecycle.markPortAuthorized(generation);
