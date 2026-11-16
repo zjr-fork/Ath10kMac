@@ -117,6 +117,10 @@ typedef struct ATH10K_NATIVE_PACKED Ath10kNativeBSSRecord {
     uint16_t ie_length;
     uint8_t ssid[ATH10K_NATIVE_MAX_SSID];
     uint8_t ies[ATH10K_NATIVE_MAX_BSS_IE_BYTES];
+    uint16_t capabilities;
+    uint16_t beacon_interval;
+    uint8_t rate_count;
+    uint8_t rates[32];
 } Ath10kNativeBSSRecord;
 
 typedef struct ATH10K_NATIVE_PACKED Ath10kNativeKeyRequest {
@@ -276,7 +280,7 @@ static_assert(sizeof(Ath10kNativeSSID) == 33, "native ABI SSID size");
 static_assert(offsetof(Ath10kNativeScanRequest, ssids) == 35, "native ABI scan SSID offset");
 static_assert(offsetof(Ath10kNativeScanRequest, channels) == 563, "native ABI scan channel offset");
 static_assert(sizeof(Ath10kNativeScanRequest) == 691, "native ABI scan request size");
-static_assert(sizeof(Ath10kNativeBSSRecord) == 560, "native ABI BSS record size");
+static_assert(sizeof(Ath10kNativeBSSRecord) == 597, "native ABI BSS record size");
 static_assert(sizeof(Ath10kNativeKeyRequest) == 70, "native ABI key request size");
 static_assert(sizeof(Ath10kNativeLinkSnapshot) == 88, "native ABI link snapshot size");
 #else
@@ -285,7 +289,7 @@ _Static_assert(sizeof(Ath10kNativeSSID) == 33, "native ABI SSID size");
 _Static_assert(offsetof(Ath10kNativeScanRequest, ssids) == 35, "native ABI scan SSID offset");
 _Static_assert(offsetof(Ath10kNativeScanRequest, channels) == 563, "native ABI scan channel offset");
 _Static_assert(sizeof(Ath10kNativeScanRequest) == 691, "native ABI scan request size");
-_Static_assert(sizeof(Ath10kNativeBSSRecord) == 560, "native ABI BSS record size");
+_Static_assert(sizeof(Ath10kNativeBSSRecord) == 597, "native ABI BSS record size");
 _Static_assert(sizeof(Ath10kNativeKeyRequest) == 70, "native ABI key request size");
 _Static_assert(sizeof(Ath10kNativeLinkSnapshot) == 88, "native ABI link snapshot size");
 #endif
