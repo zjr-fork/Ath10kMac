@@ -19,6 +19,10 @@ int main() {
     Ath10kNativeLeaveObserver::Result result = Ath10kNativeLeaveObserver::kPending;
     auto connected = snapshot(10, 0, true, true, false);
     assert(!observer.begin(0, connected));
+    auto alreadyDisconnecting = snapshot(10, 1, false, false, false);
+    assert(!observer.begin(7, alreadyDisconnecting));
+    auto alreadyCancelled = snapshot(10, 0, false, false, true);
+    assert(!observer.begin(7, alreadyCancelled));
     assert(observer.begin(7, connected));
     assert(observer.active() && observer.generation() == 7);
 
