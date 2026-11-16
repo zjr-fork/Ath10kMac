@@ -261,6 +261,12 @@ static inline int ath10kNativeHeaderValid(const Ath10kNativeMessageHeader *h,
         h->payload_bytes == (uint32_t)(h->size - sizeof(Ath10kNativeMessageHeader));
 }
 
+static inline int ath10kNativeGenerationIsNewer(uint32_t candidate,uint32_t current) {
+    if (!candidate) return 0;
+    const uint32_t delta=candidate-current;
+    return delta!=0 && delta<0x80000000u;
+}
+
 static inline int ath10kNativeValidateJoinRequest(const Ath10kNativeJoinRequest *r) {
     if (!r || !ath10kNativeHeaderValid(&r->header, ATH10K_NATIVE_OP_ASSOCIATE,
                                        (uint16_t)sizeof(*r))) return 0;
