@@ -116,6 +116,12 @@ check-apple-scan-result-abi: check-sdk
 check-sequoia-infra-abstractness: check-sdk check-sequoia-probe-generator
 	sh scripts/check-sequoia-infra-abstractness.sh
 
+.PHONY: check-native-scan-cursor
+check-native-scan-cursor:
+	$(CXX) -std=c++17 -Wall -Wextra -Werror tests/test_native_scan_cursor.cpp -o /tmp/ath10k-native-scan-cursor
+	/tmp/ath10k-native-scan-cursor
+	rm -f /tmp/ath10k-native-scan-cursor
+
 .PHONY: check-sequoia-probe-generator
 check-sequoia-probe-generator:
 	python3 tests/test_generate_sequoia_infra_probe.py
