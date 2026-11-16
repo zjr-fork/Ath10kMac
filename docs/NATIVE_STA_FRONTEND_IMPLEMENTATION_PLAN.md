@@ -77,6 +77,53 @@ association completion while holding the interface gate.
 - Link snapshot and capabilities value structures.
 - Existing WPA2/CCMP key installation and controlled-port authorization.
 
+## Native Join request gap discovered during source audit
+
+The existing connection engine is not yet a native-framework-driven Join API.
+In `Ath10kPCIDevice::serviceConnection()`, the `LinkStage::Scan` branch waits
+for the scan to finish and then calls `Ath10k::selectOpenBSS(s, _wmiBSS)`.
+That path chooses from the driver's BSS cache; it does not consume a
+framework-selected candidate, an explicit BSSID, or a copied Apple security
+profile. The native scan queue also rejects a new scan while a connection is
+in progress, but there is currently no symmetric `queueNativeJoinRequest()`
+entry point.
+
+This is a functional blocker, not just a missing WCL notification. Wiring
+`setWCL_ASSOCIATE` to the existing automatic selection path would risk joining
+a different AP from the one macOS selected. The Join observer added earlier
+only observes completion facts; it does not initiate a connection.
+
+Required next core work, after the Sequoia 15.7 candidate/key ABI is verified:
+
+1. Define a pointer-free, bounded native Join value request. It must represent
+   the selected BSSID, SSID, supported security mode and any required
+   credential material without retaining Apple pointers. Secret bytes must be
+   copied into driver-owned storage, wiped on every terminal/rollback path,
+   and never included in diagnostics or snapshots.
+2. Resolve the requested BSSID against a completed, generation-valid BSS
+   record; reject missing, duplicate/ambiguous, malformed or unsupported
+   candidates rather than falling back to another AP.
+3. Parse and validate the candidate's RSN/security information and the
+   framework's selected security profile together. Do not infer open/WPA2 mode
+   from SSID or BSSID alone, and do not treat a PMK as a passphrase.
+4. Seed the existing connection state machine from the validated selected BSS
+   and explicit security request. Preserve its current firmware command,
+   association, key-installation and controlled-port barriers; do not duplicate
+   those state machines in the frontend.
+5. Add generation-scoped queue/abort/status APIs on the same serialized core
+   work loop. Capture beacon/security baselines atomically with accepting the
+   request, and publish terminal status only after the existing teardown or
+   authorization barriers have completed.
+6. Keep the legacy automatic selection path isolated for existing internal
+   operation until the native path is independently tested; never let a native
+   request silently fall through to `selectOpenBSS()`.
+
+The association-candidate structure remains a hard ABI gate. A separate
+macOS-26-oriented third-party note reports offsets for that structure, but
+those offsets are not evidence for Darwin 24 / Sequoia 15.7 and are expressly
+excluded from this design. Only the pinned Sequoia headers/call sites or a
+locally verified 15.7 ABI probe may authorize a decoder.
+
 ## Existing core join-completion evidence
 
 The existing station state machine in `src/kext/Ath10kNetwork.cpp` provides
