@@ -761,7 +761,8 @@ const char *Ath10kPCIDevice::serviceConnection(UInt64 nowMs)
         if(!_wmiScan.completed || !_networkEnabled)return nullptr;
         if(_rxSetup.major!=3 || (_wmi.serviceBitmap[76/4]&(1u<<(76%4))))return "management-tx-abi-not-supported";
         s.firmwareHT=_wmi.htCapability;s.firmwareVHT=_wmi.vhtCapability;
-        s.rfChains=static_cast<UInt8>(_wmiInit.requestedChainMask==1?1:2);
+        if(!Ath10k::wmiContiguousRFChainCount(_wmiInit.requestedChainMask,s.rfChains))
+            return "wmi-rf-chain-mask";
         s.regulatory=_regulatory;
         const char *error=Ath10k::selectOpenBSS(s,_wmiBSS);if(error)return error;
         s.stage=LinkStage::Start;s.sinceMs=nowMs;
