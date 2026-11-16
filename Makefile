@@ -88,6 +88,7 @@ $(BUILD_DIR)/experiment-config: FORCE | $(BUILD_DIR)
 
 $(OBJS): Makefile $(BUILD_DIR)/experiment-config
 $(OBJS): src/kext/Ath10kMulticast.hpp src/kext/Ath10kConnection.hpp src/shared/Ath10kControl.hpp
+$(OBJS): src/shared/Ath10kNativeBridge.h
 $(OBJS): src/kext/Ath10kRuntimePower.hpp src/kext/Ath10kFirmwareStats.hpp
 
 $(OUT_BIN): Makefile $(OBJS) Ath10kMac.kext/Contents/Info.plist
