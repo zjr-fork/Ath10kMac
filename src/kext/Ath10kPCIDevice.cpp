@@ -25,6 +25,9 @@ struct NativeScanStatusArgs {
 struct NativeLinkSnapshotArgs {
     Ath10kNativeLinkSnapshot *snapshot;
 };
+struct NativeCapabilitiesArgs {
+    Ath10kNativeCapabilities *capabilities;
+};
 
 // Standard PCI configuration-space offsets/capability IDs.
 static constexpr UInt8 kPCIConfigProgIf        = 0x09;
@@ -2625,6 +2628,51 @@ IOReturn Ath10kPCIDevice::copyNativeLinkSnapshot(Ath10kNativeLinkSnapshot *snaps
     if(!snapshot || !_wmiWorkLoop || isInactive())return kIOReturnBadArgument;
     NativeLinkSnapshotArgs args{snapshot};
     return _wmiWorkLoop->runAction(nativeLinkSnapshotAction,this,&args,nullptr,nullptr);
+}
+
+IOReturn Ath10kPCIDevice::getNativeCapabilities(Ath10kNativeCapabilities *capabilities)
+{
+    if(!capabilities || !_wmiWorkLoop || isInactive())return kIOReturnBadArgument;
+    NativeCapabilitiesArgs args{capabilities};
+    return _wmiWorkLoop->runAction(nativeCapabilitiesAction,this,&args,nullptr,nullptr);
+}
+
+IOReturn Ath10kPCIDevice::nativeCapabilitiesAction(OSObject *owner,void *input,void *,void *,void *)
+{
+    auto *self=OSDynamicCast(Ath10kPCIDevice,owner);
+    if(!self || !input)return kIOReturnBadArgument;
+    auto &args=*static_cast<NativeCapabilitiesArgs *>(input);
+    if(!args.capabilities)return kIOReturnBadArgument;
+    if(!self->_wmiInit.ready || !self->_wmiLive.active || !self->_runtimeActive ||
+       !self->_wmiScanChannels.completed)return kIOReturnNotReady;
+
+    auto &out=*args.capabilities;
+    UInt8 *raw=reinterpret_cast<UInt8 *>(&out);
+    for(UInt32 i=0;i<sizeof(out);++i)raw[i]=0;
+    out.header.version=ATH10K_NATIVE_ABI_VERSION;
+    out.header.size=static_cast<UInt16>(sizeof(out));
+    out.header.operation=ATH10K_NATIVE_OP_GET_CAPABILITIES;
+    out.header.status=ATH10K_NATIVE_STATUS_OK;
+    out.header.payload_bytes=static_cast<UInt32>(sizeof(out)-sizeof(out.header));
+    out.feature_flags=ATH10K_NATIVE_CAP_STATION|ATH10K_NATIVE_CAP_SCAN_ACTIVE|
+        ATH10K_NATIVE_CAP_SCAN_PASSIVE|ATH10K_NATIVE_CAP_WPA2_PSK;
+    out.cipher_flags=ATH10K_NATIVE_CAP_CIPHER_CCMP128_PAIRWISE|
+        ATH10K_NATIVE_CAP_CIPHER_TKIP_GROUP;
+    if(self->_wmi.htCapability)out.feature_flags|=ATH10K_NATIVE_CAP_HT;
+    if(self->_wmi.vhtCapability)out.feature_flags|=ATH10K_NATIVE_CAP_VHT;
+    out.max_scan_channels=ATH10K_NATIVE_MAX_SCAN_CHANNELS;
+    out.max_ssid_length=ATH10K_NATIVE_MAX_SSID;
+    out.max_scan_ssids=ATH10K_NATIVE_MAX_SCAN_SSIDS;
+    out.max_bss_ie_bytes=ATH10K_NATIVE_MAX_BSS_IE_BYTES;
+    for(UInt32 i=0;i<Ath10k::kWMIScanChannelCount &&
+        out.channel_count<ATH10K_NATIVE_MAX_SCAN_CHANNELS;++i) {
+        const UInt32 channel=Ath10k::wmiScanChannel(i);
+        if(!Ath10k::regulatoryScanChannel(self->_regulatory,channel))continue;
+        out.channels[out.channel_count++]=static_cast<UInt16>(channel);
+        out.feature_flags|=channel<=14?ATH10K_NATIVE_CAP_BAND_2GHZ:
+            ATH10K_NATIVE_CAP_BAND_5GHZ;
+    }
+    return out.channel_count?kIOReturnSuccess:kIOReturnUnsupported;
 }
 
 IOReturn Ath10kPCIDevice::nativeLinkSnapshotAction(OSObject *owner,void *input,void *,void *,void *)
