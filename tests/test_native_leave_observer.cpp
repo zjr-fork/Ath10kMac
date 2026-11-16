@@ -1,0 +1,55 @@
+#include "../src/kext/Ath10kNativeLeaveObserver.hpp"
+#include <assert.h>
+#include <string.h>
+
+static Ath10kNativeJoinSnapshot snapshot(uint32_t stage, uint32_t disconnect,
+                                         bool secure, bool authorized,
+                                         bool cancel) {
+    Ath10kNativeJoinSnapshot s{};
+    s.link_stage = stage;
+    s.disconnect_stage = disconnect;
+    s.secure = secure ? 1 : 0;
+    s.port_authorized = authorized ? 1 : 0;
+    s.cancel_requested = cancel ? 1 : 0;
+    return s;
+}
+
+int main() {
+    Ath10kNativeLeaveObserver observer;
+    Ath10kNativeLeaveObserver::Result result = Ath10kNativeLeaveObserver::kPending;
+    auto connected = snapshot(10, 0, true, true, false);
+    assert(!observer.begin(0, connected));
+    assert(observer.begin(7, connected));
+    assert(observer.active() && observer.generation() == 7);
+
+    // Stale generations and malformed snapshots cannot complete the Leave.
+    auto idle = snapshot(0, 0, false, false, false);
+    assert(!observer.observe(6, idle, result));
+    auto malformed = idle;
+    malformed.reserved = 1;
+    assert(!observer.observe(7, malformed, result));
+    assert(observer.active());
+
+    // Port closure is only an intermediate state; the core still owns teardown.
+    auto draining = snapshot(10, 1, false, false, false);
+    assert(observer.observe(7, draining, result));
+    assert(result == Ath10kNativeLeaveObserver::kPending && observer.active());
+
+    auto cancelled = snapshot(10, 1, false, false, true);
+    assert(observer.observe(7, cancelled, result));
+    assert(result == Ath10kNativeLeaveObserver::kPending && observer.active());
+
+    // Only the final Disabled + no-disconnect + unsecured snapshot completes.
+    assert(observer.observe(7, idle, result));
+    assert(result == Ath10kNativeLeaveObserver::kSucceeded && !observer.active());
+    assert(!observer.observe(7, idle, result));
+
+    // A new generation may begin after the previous operation is terminal.
+    assert(observer.begin(8, connected));
+    auto stillConnected = snapshot(10, 0, true, true, true);
+    assert(observer.observe(8, stillConnected, result));
+    assert(result == Ath10kNativeLeaveObserver::kPending && observer.active());
+    observer.reset();
+    assert(!observer.active() && observer.generation() == 0);
+    return 0;
+}
