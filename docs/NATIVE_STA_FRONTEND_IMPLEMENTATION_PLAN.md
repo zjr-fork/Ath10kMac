@@ -142,9 +142,12 @@ Leave/Scan notification question:
   `LinkStatus = 216`; it does not define a dedicated `LeaveComplete`
   message in that enumeration.
 - Its `finishWCLScan(status)` posts `ScanDone` with a four-byte
-  `IOReturn` value. This is a concrete reference-implementation payload shape,
-  not proof of Apple's private receiver contract or the controller
-  `postMessage` copy/lifetime semantics.
+  `IOReturn` value. `finishWCLScan()` passes the address of its stack-local
+  status and returns immediately; the ScanResult publisher likewise frees its
+  heap payload immediately after `postMessage()` returns. These call sites
+  strongly indicate synchronous payload consumption/copy in the pinned
+  implementation. This is behavioral evidence for that reference build, not
+  a published Apple API guarantee for every 15.7 runtime.
 - Its `abortWCLJoin()` calls the local leave routine and then posts
   `JoinAbortComplete` with an empty payload. This is specific to Join-abort;
   it must not be reinterpreted as a normal Leave completion.
@@ -383,8 +386,9 @@ while that same generation remains active.
 - The precise event source and synchronization point that constitutes controlled-port authorization must be mapped from the existing Ath10kMac key-install/authorization path before wiring the Join lifecycle tracker.
 - Whether the legacy IONetworkController::attachInterface registration path
   remains required with the exact local SDK and selected build target.
-- Ownership/copy semantics of controller/interface postMessage payloads and
-  the required lifetime of scan-result messages.
+- Confirm that the 15.7 runtime matches the reference's synchronous payload
+  consumption/copy behavior; separately establish interface lifetime through
+  asynchronous detach/teardown.
 - Required WCL callback ordering for scan result enumeration and terminal done.
 - Exact provider relationship and asynchronous detach completion on 15.7.
 - Full Skywalk TX/RX packet ownership and native interface registration behavior.
@@ -405,8 +409,12 @@ entry points with different owners and signatures:
 
 They are overloads on different framework objects, not interchangeable
 wrappers. A future publisher must select the interface/controller entry point
-from the actual framework contract and must not infer payload ownership,
-copying, or completion semantics from the method name or return type.
+from the actual framework contract. The pinned reference frees heap payloads
+immediately after controller `postMessage()` returns and passes stack-local
+ScanDone status, indicating synchronous payload consumption/copy in that
+implementation. Do not infer ownership transfer or asynchronous completion
+from the method name or return type; verify the 15.7 runtime behavior and
+interface teardown lifetime.
 
 The pinned Sequoia 15 reference's controller-side event forwarding calls the
 four-argument interface overload for several ordinary link/country events.
@@ -422,7 +430,9 @@ The same header declares
 spellings/types in the pinned Sequoia reference only. They do not establish
 the 15.7 callback's buffer extent, completion event identifier, payload
 lifetime, or whether a Leave completion must be sent through controller or
-interface `postMessage`.
+interface `postMessage`. The reference's immediate payload release is evidence
+for synchronous consumption in that implementation, not a universal API
+contract.
 
 Implementation rule: do not add a production LeaveComplete or ScanDone
 publisher until the selected 15.7 target's message identifier, payload shape,
