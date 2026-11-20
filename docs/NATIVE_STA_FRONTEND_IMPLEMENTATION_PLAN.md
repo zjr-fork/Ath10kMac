@@ -436,3 +436,25 @@ The Leave observer also preserves a generation high-water mark across
 operation generations, while allowing valid RFC-1982 wraparound. Resetting
 the interface observer therefore cannot make an old Leave completion token
 valid again during the lifetime of that observer instance.
+## WCL scan-result serializer validation refinement
+
+A second pass against the pinned Sequoia WCL publisher confirmed that its
+`BeaconMetadata::channelSpec` uses the channel's actual 5 GHz band flag, while
+`RSSIValid` is set for the published RSSI value even when the source RSSI is
+derived from a firmware signal estimate. The previous Ath10kMac serializer
+incorrectly tied `RSSIValid` to the `RSSI_ESTIMATED` flag and selected the band
+from the channel number alone.
+
+The value-only serializer now:
+- derives 2.4/5 GHz channel-spec bits from the BSS record's captured frequency;
+- rejects missing, unsupported (including 6 GHz), or channel/frequency-inconsistent
+  records instead of publishing a guessed band;
+- sets `RSSIValid` for any available RSSI value, including estimated RSSI, and
+  leaves it clear only for the `-128` unavailable sentinel.
+
+The regression fixture covers 2.4 GHz and 5 GHz channel specs, inconsistent
+channel/frequency pairs, unsupported 6 GHz frequencies, estimated and
+non-estimated RSSI, and unavailable RSSI. This is serializer-only hardening:
+the WCL message publisher, receiver contract, and payload ownership remain
+unverified and unwired. The full macOS host-test script and KEXT build have not
+yet been run for this change.
