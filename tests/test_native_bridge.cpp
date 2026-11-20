@@ -87,21 +87,21 @@ int main() {
         ath10kNativeGenerationIsNewer(0x80000000u,0u)) return 21;
 
     Ath10kNativeScanStatus scanStatus{};
-    if (ath10kNativeScanStatusHasResults(nullptr)) return 30;
+    if (ath10kNativeScanStatusAllowsEnumeration(nullptr)) return 30;
     scanStatus.generation=1;
     scanStatus.state=ATH10K_NATIVE_SCAN_PENDING;
-    if (ath10kNativeScanStatusHasResults(&scanStatus)) return 31;
+    if (ath10kNativeScanStatusAllowsEnumeration(&scanStatus)) return 31;
     scanStatus.state=ATH10K_NATIVE_SCAN_FAILED;
-    if (ath10kNativeScanStatusHasResults(&scanStatus)) return 32;
+    if (ath10kNativeScanStatusAllowsEnumeration(&scanStatus)) return 32;
     scanStatus.state=ATH10K_NATIVE_SCAN_CANCELLED;
-    if (ath10kNativeScanStatusHasResults(&scanStatus)) return 33;
+    if (ath10kNativeScanStatusAllowsEnumeration(&scanStatus)) return 33;
     scanStatus.state=ATH10K_NATIVE_SCAN_TIMED_OUT;
-    if (ath10kNativeScanStatusHasResults(&scanStatus)) return 34;
+    if (ath10kNativeScanStatusAllowsEnumeration(&scanStatus)) return 34;
     scanStatus.state=ATH10K_NATIVE_SCAN_SUCCEEDED;
     scanStatus.result_count=0;
-    if (!ath10kNativeScanStatusHasResults(&scanStatus)) return 35;
+    if (!ath10kNativeScanStatusAllowsEnumeration(&scanStatus)) return 35;
     scanStatus.generation=0;
-    if (ath10kNativeScanStatusHasResults(&scanStatus)) return 36;
+    if (ath10kNativeScanStatusAllowsEnumeration(&scanStatus)) return 36;
 
     Ath10kNativeJoinRequest join{};
     Ath10kNativeBSSRecord openBSS{};
