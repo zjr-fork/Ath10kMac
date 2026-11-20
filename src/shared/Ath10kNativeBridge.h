@@ -173,6 +173,16 @@ typedef struct ATH10K_NATIVE_PACKED Ath10kNativeScanStatus {
     uint32_t result_count;
 } Ath10kNativeScanStatus;
 
+/*
+ * BSS records are enumerable only for a nonzero, successfully completed
+ * native scan generation. A successful empty scan is still a valid result
+ * set; result_count may therefore be zero.
+ */
+static inline int ath10kNativeScanStatusHasResults(const Ath10kNativeScanStatus *status) {
+    return status != 0 && status->generation != 0 &&
+        status->state == ATH10K_NATIVE_SCAN_SUCCEEDED;
+}
+
 typedef struct ATH10K_NATIVE_PACKED Ath10kNativeBSSRecord {
     uint8_t bssid[6];
     uint8_t ssid_length;
