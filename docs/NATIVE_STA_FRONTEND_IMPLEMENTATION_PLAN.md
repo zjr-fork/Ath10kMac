@@ -312,6 +312,15 @@ The WCL join lifecycle accepts the Beacon event before or after the association
 completion event, but requires the caller to prove both selected-BSSID match
 and a post-begin Beacon serial.
 
+The PCI BSS-copy action now independently enforces the same publication
+boundary instead of relying only on the future interface observer: it requires
+a matching nonzero generation, a native-request marker, completed successful
+status, and no outstanding scan TX ownership. The shared C/C++ predicate
+treats a successful empty scan as a valid empty result set but rejects pending,
+failed, cancelled, timed-out and zero-generation statuses. This prevents a
+direct or future misordered BSS-copy caller from reading partial records after
+a failed/cancelled scan.
+
 The host-testable `Ath10kNativeScanObserver.hpp` now joins the core's
 `Ath10kNativeScanStatus` to the interface's generation-scoped BSS cursor.
 A matching pending status leaves the operation active; only a matching
