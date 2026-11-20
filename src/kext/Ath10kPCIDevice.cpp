@@ -2960,8 +2960,17 @@ IOReturn Ath10kPCIDevice::nativeBSSAction(OSObject *owner,void *input,void *,voi
     if(!self->_nativeCoreReady)return kIOReturnNotReady;
     auto &args=*static_cast<NativeBSSCopyArgs *>(input);
     if(!args.record || !args.countOut)return kIOReturnBadArgument;
-    if(!self->_wmiScan.completed)return kIOReturnNotReady;
     if(self->_wmiScan.generation!=args.generation)return kIOReturnNotFound;
+    Ath10kNativeScanStatus status{};
+    status.generation=args.generation;
+    status.state=self->_wmiScan.timedOut?ATH10K_NATIVE_SCAN_TIMED_OUT:
+        (self->_wmiScan.failed?ATH10K_NATIVE_SCAN_FAILED:
+         (!self->_wmiScan.completed?ATH10K_NATIVE_SCAN_PENDING:
+          (self->_wmiScan.cancelRequested?ATH10K_NATIVE_SCAN_CANCELLED:ATH10K_NATIVE_SCAN_SUCCEEDED)));
+    status.result_count=self->_wmiBSS.count;
+    if(!self->_wmiScan.nativeRequest || self->_wmiScan.txOwned ||
+       !ath10kNativeScanStatusHasResults(&status))
+        return kIOReturnNotReady;
     *args.countOut=self->_wmiBSS.count;
     if(args.index>=self->_wmiBSS.count)return kIOReturnNotFound;
 
