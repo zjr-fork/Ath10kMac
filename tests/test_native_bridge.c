@@ -25,15 +25,15 @@ int main(void) {
         ath10kNativeGenerationIsNewer(0x80000000u,0u)) return 21;
 
     Ath10kNativeScanStatus scan_status = {0};
-    if (ath10kNativeScanStatusHasResults(0)) return 28;
+    if (ath10kNativeScanStatusAllowsEnumeration(0)) return 28;
     scan_status.generation=1;
     scan_status.state=ATH10K_NATIVE_SCAN_PENDING;
-    if (ath10kNativeScanStatusHasResults(&scan_status)) return 29;
+    if (ath10kNativeScanStatusAllowsEnumeration(&scan_status)) return 29;
     scan_status.state=ATH10K_NATIVE_SCAN_SUCCEEDED;
     scan_status.result_count=0;
-    if (!ath10kNativeScanStatusHasResults(&scan_status)) return 30;
+    if (!ath10kNativeScanStatusAllowsEnumeration(&scan_status)) return 30;
     scan_status.generation=0;
-    if (ath10kNativeScanStatusHasResults(&scan_status)) return 31;
+    if (ath10kNativeScanStatusAllowsEnumeration(&scan_status)) return 31;
 
     Ath10kNativeBSSRecord bss = {0};
     bss.bssid[0]=0x02;bss.bssid[5]=0x01;
