@@ -178,7 +178,7 @@ typedef struct ATH10K_NATIVE_PACKED Ath10kNativeScanStatus {
  * native scan generation. A successful empty scan is still a valid result
  * set; result_count may therefore be zero.
  */
-static inline int ath10kNativeScanStatusHasResults(const Ath10kNativeScanStatus *status) {
+static inline int ath10kNativeScanStatusAllowsEnumeration(const Ath10kNativeScanStatus *status) {
     return status != 0 && status->generation != 0 &&
         status->state == ATH10K_NATIVE_SCAN_SUCCEEDED;
 }
