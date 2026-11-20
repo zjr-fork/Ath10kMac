@@ -2969,7 +2969,7 @@ IOReturn Ath10kPCIDevice::nativeBSSAction(OSObject *owner,void *input,void *,voi
           (self->_wmiScan.cancelRequested?ATH10K_NATIVE_SCAN_CANCELLED:ATH10K_NATIVE_SCAN_SUCCEEDED)));
     status.result_count=self->_wmiBSS.count;
     if(!self->_wmiScan.nativeRequest || self->_wmiScan.txOwned ||
-       !ath10kNativeScanStatusHasResults(&status))
+       !ath10kNativeScanStatusAllowsEnumeration(&status))
         return kIOReturnNotReady;
     *args.countOut=self->_wmiBSS.count;
     if(args.index>=self->_wmiBSS.count)return kIOReturnNotFound;
