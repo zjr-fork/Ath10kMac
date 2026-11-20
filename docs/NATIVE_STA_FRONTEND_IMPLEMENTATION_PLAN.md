@@ -315,11 +315,13 @@ and a post-begin Beacon serial.
 The PCI BSS-copy action now independently enforces the same publication
 boundary instead of relying only on the future interface observer: it requires
 a matching nonzero generation, a native-request marker, completed successful
-status, and no outstanding scan TX ownership. The shared C/C++ predicate
-treats a successful empty scan as a valid empty result set but rejects pending,
-failed, cancelled, timed-out and zero-generation statuses. This prevents a
-direct or future misordered BSS-copy caller from reading partial records after
-a failed/cancelled scan.
+status, and no outstanding scan TX ownership. The status query itself now rejects
+non-native generations, reports zero results until successful completion and
+descriptor ownership release, and keeps a still-owned TX operation pending
+rather than publishing a premature success. The shared C/C++ predicate treats
+a successful empty scan as a valid empty result set but rejects pending,
+failed, cancelled, timed-out and zero-generation statuses. These checks keep
+both status and BSS-copy callers from observing partial records.
 
 The host-testable `Ath10kNativeScanObserver.hpp` now joins the core's
 `Ath10kNativeScanStatus` to the interface's generation-scoped BSS cursor.
