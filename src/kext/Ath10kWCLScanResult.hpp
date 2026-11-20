@@ -51,6 +51,29 @@ inline bool ath10kWCLValidIEs(const uint8_t *ies, uint32_t length) {
 }
 
 /*
+ * QCA9377 is a 2.4/5 GHz device. Use the captured frequency, not just the
+ * channel number, to select the WCL band bits; reject unknown or inconsistent
+ * channel/frequency pairs instead of publishing a guessed channel spec.
+ */
+inline bool ath10kWCLChannelSpec(const Ath10kNativeBSSRecord *record,
+                                uint16_t *channelSpec) {
+    if (!record || !channelSpec || !record->channel ||
+        record->channel > 196 || !record->frequency_mhz)
+        return false;
+    if (record->frequency_mhz >= 2400 && record->frequency_mhz <= 2500 &&
+        record->channel <= 14) {
+        *channelSpec = static_cast<uint16_t>(record->channel | 0x1000u);
+        return true;
+    }
+    if (record->frequency_mhz >= 4900 && record->frequency_mhz <= 5900 &&
+        record->channel > 14) {
+        *channelSpec = static_cast<uint16_t>(record->channel | 0xd000u);
+        return true;
+    }
+    return false;
+}
+
+/*
  * Returns the exact payload byte count on success, zero on invalid input or
  * insufficient capacity. No partial payload is emitted. The caller owns the
  * destination and must send it only after validating the associated scan
@@ -62,9 +85,11 @@ inline uint32_t ath10kBuildWCLScanResult(const Ath10kNativeBSSRecord *record,
     if (!record || !destination ||
         record->ssid_length > sizeof(record->ssid) ||
         record->ie_length > sizeof(record->ies) ||
-        record->channel == 0 || record->channel > 196 ||
         !ath10kWCLValidIEs(record->ies, record->ie_length))
         return 0;
+
+    uint16_t channelSpec = 0;
+    if (!ath10kWCLChannelSpec(record, &channelSpec)) return 0;
 
     const uint32_t total = uint32_t(sizeof(Ath10kWCLBeaconMetadata)) + record->ie_length;
     if (capacity < total) return 0;
@@ -72,7 +97,7 @@ inline uint32_t ath10kBuildWCLScanResult(const Ath10kNativeBSSRecord *record,
     Ath10kWCLBeaconMetadata metadata{};
     metadata.ieLength = record->ie_length;
     metadata.channel = static_cast<uint8_t>(record->channel);
-    metadata.channelSpec = static_cast<uint16_t>(record->channel | (record->channel > 14 ? 0xd000 : 0x1000));
+    metadata.channelSpec = channelSpec;
     metadata.ssidLength = record->ssid_length;
     memcpy(metadata.ssid, record->ssid, record->ssid_length);
     memcpy(metadata.bssid, record->bssid, sizeof(metadata.bssid));
@@ -82,7 +107,10 @@ inline uint32_t ath10kBuildWCLScanResult(const Ath10kNativeBSSRecord *record,
     metadata.capability = record->capabilities;
     /* The Sequoia WCL publisher sets SSIDPresent even for hidden SSIDs. */
     metadata.flags |= ATH10K_WCL_BEACON_SSID_PRESENT;
-    if (record->flags & ATH10K_NATIVE_BSS_RSSI_ESTIMATED)
+    /* Estimated RSSI is still a usable RSSI measurement for WCL. The native
+     * record uses -128 only for unavailable RSSI; do not invert the estimated
+     * flag into an RSSI-validity test. */
+    if (record->rssi_dbm != INT8_MIN)
         metadata.flags |= ATH10K_WCL_BEACON_RSSI_VALID;
 
     memcpy(destination, &metadata, sizeof(metadata));
