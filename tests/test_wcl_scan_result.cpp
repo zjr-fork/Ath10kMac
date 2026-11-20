@@ -4,6 +4,7 @@ int main() {
     if (ATH10K_WCL_MESSAGE_SCAN_RESULT != 201 || ATH10K_WCL_MESSAGE_SCAN_DONE != 237) return 10;
     Ath10kNativeBSSRecord record{};
     record.channel = 36;
+    record.frequency_mhz = 5180;
     record.ssid_length = 3;
     record.ssid[0] = 'a'; record.ssid[1] = 'b'; record.ssid[2] = 'c';
     record.bssid[0] = 0x02; record.bssid[5] = 0x55;
@@ -30,10 +31,34 @@ int main() {
         (ATH10K_WCL_BEACON_SSID_PRESENT | ATH10K_WCL_BEACON_RSSI_VALID)) return 4;
     if (memcmp(output + sizeof(metadata), ies, sizeof(ies)) != 0) return 5;
 
+    /* RSSIValid describes availability, not whether the value was estimated. */
+    record.flags = 0;
+    if (ath10kBuildWCLScanResult(&record, output, sizeof(output)) != sizeof(output)) return 11;
+    memcpy(&metadata, output, sizeof(metadata));
+    if (!(metadata.flags & ATH10K_WCL_BEACON_RSSI_VALID)) return 12;
+    record.rssi_dbm = INT8_MIN;
+    if (ath10kBuildWCLScanResult(&record, output, sizeof(output)) != sizeof(output)) return 13;
+    memcpy(&metadata, output, sizeof(metadata));
+    if (metadata.flags & ATH10K_WCL_BEACON_RSSI_VALID) return 14;
+    record.rssi_dbm = -61;
+
     record.ssid_length = 0;
     if (ath10kBuildWCLScanResult(&record, output, sizeof(output)) != sizeof(output)) return 6;
     memcpy(&metadata, output, sizeof(metadata));
     if (!(metadata.flags & ATH10K_WCL_BEACON_SSID_PRESENT) || metadata.ssidLength != 0) return 7;
+
+    record.channel = 6;
+    record.frequency_mhz = 2437;
+    if (ath10kBuildWCLScanResult(&record, output, sizeof(output)) != sizeof(output)) return 15;
+    memcpy(&metadata, output, sizeof(metadata));
+    if (metadata.channelSpec != 0x1006) return 16;
+
+    record.frequency_mhz = 5180; // channel/frequency band mismatch
+    if (ath10kBuildWCLScanResult(&record, output, sizeof(output)) != 0) return 17;
+    record.channel = 36;
+    record.frequency_mhz = 5955; // unsupported 6 GHz
+    if (ath10kBuildWCLScanResult(&record, output, sizeof(output)) != 0) return 18;
+    record.frequency_mhz = 5180;
 
     record.ie_length = 2;
     record.ies[0] = 48; record.ies[1] = 10;
