@@ -2941,15 +2941,18 @@ IOReturn Ath10kPCIDevice::nativeScanStatusAction(OSObject *owner,void *input,voi
     if(!self || !input)return kIOReturnBadArgument;
     if(!self->_nativeCoreReady)return kIOReturnNotReady;
     auto &args=*static_cast<NativeScanStatusArgs *>(input);
-    if(!args.status)return kIOReturnBadArgument;
-    if(self->_wmiScan.generation!=args.generation)return kIOReturnNotFound;
+    if(!args.status || !args.generation)return kIOReturnBadArgument;
+    if(self->_wmiScan.generation!=args.generation || !self->_wmiScan.nativeRequest)
+        return kIOReturnNotFound;
     args.status->generation=args.generation;
     args.status->state=self->_wmiScan.timedOut?ATH10K_NATIVE_SCAN_TIMED_OUT:
         (self->_wmiScan.failed?ATH10K_NATIVE_SCAN_FAILED:
-         (!self->_wmiScan.completed?ATH10K_NATIVE_SCAN_PENDING:
+         (!self->_wmiScan.completed || self->_wmiScan.txOwned?ATH10K_NATIVE_SCAN_PENDING:
           (self->_wmiScan.cancelRequested?ATH10K_NATIVE_SCAN_CANCELLED:ATH10K_NATIVE_SCAN_SUCCEEDED)));
     args.status->reason=self->_wmiScan.reason;
-    args.status->result_count=self->_wmiBSS.count;
+    args.status->result_count=
+        ath10kNativeScanStatusAllowsEnumeration(args.status) && !self->_wmiScan.txOwned
+            ? self->_wmiBSS.count : 0;
     return kIOReturnSuccess;
 }
 
