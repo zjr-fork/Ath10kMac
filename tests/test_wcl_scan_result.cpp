@@ -55,6 +55,10 @@ int main() {
 
     record.frequency_mhz = 5180; // channel/frequency band mismatch
     if (ath10kBuildWCLScanResult(&record, output, sizeof(output)) != 0) return 17;
+    record.channel = 14; record.frequency_mhz = 2484; // excluded by the QCA9377 plan
+    if (ath10kBuildWCLScanResult(&record, output, sizeof(output)) != 0) return 20;
+    record.channel = 15; record.frequency_mhz = 5075; // arithmetic match, unsupported channel
+    if (ath10kBuildWCLScanResult(&record, output, sizeof(output)) != 0) return 21;
     record.channel = 36;
     record.frequency_mhz = 5200; // same band, but wrong primary-channel frequency
     if (ath10kBuildWCLScanResult(&record, output, sizeof(output)) != 0) return 19;
