@@ -472,11 +472,13 @@ yet been run for this change.
 
 ### Exact WCL channel/frequency consistency
 
-The WCL serializer now validates the exact primary-channel frequency mapping,
-not merely that channel and frequency fall into the same band. For channels
-1-13 it requires `2407 + 5 * channel` MHz; channel 14 uses 2484 MHz; for the
-supported 5 GHz channel numbers it requires `5000 + 5 * channel` MHz. This
-rejects same-band but contradictory metadata (for example channel 36 paired
-with 5200 MHz), as well as unsupported 6 GHz frequencies. The test fixture
-includes this same-band mismatch. The serializer remains a value-only helper
-and is not wired to WCL message publication.
+The WCL serializer now validates the exact primary-channel frequency mapping
+and the QCA9377 scan-plan channel set, not merely that channel and frequency
+fall into the same band. For channels 1-13 it requires `2407 + 5 * channel`
+MHz; for supported 5 GHz channels it requires `5000 + 5 * channel` MHz.
+Channel 14 and arithmetic-looking but unsupported values (for example channel
+15 / 5075 MHz) are rejected because they are not in the driver's scan plan.
+This also rejects same-band but contradictory metadata (for example channel
+36 paired with 5200 MHz) and unsupported 6 GHz frequencies. The test fixture
+covers these cases. The serializer remains a value-only helper and is not
+wired to WCL message publication.
