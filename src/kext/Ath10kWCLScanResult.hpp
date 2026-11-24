@@ -55,14 +55,28 @@ inline bool ath10kWCLValidIEs(const uint8_t *ies, uint32_t length) {
  * channel number, to select the WCL band bits; reject unknown or non-exact
  * channel/frequency pairs instead of publishing a guessed channel spec.
  */
+inline bool ath10kWCLSupportedChannel(uint16_t channel) {
+    switch (channel) {
+        case 1: case 2: case 3: case 4: case 5: case 6: case 7:
+        case 8: case 9: case 10: case 11: case 12: case 13:
+        case 36: case 40: case 44: case 48:
+        case 52: case 56: case 60: case 64:
+        case 100: case 104: case 108: case 112: case 116: case 120:
+        case 124: case 128: case 132: case 136: case 140: case 144:
+        case 149: case 153: case 157: case 161: case 165:
+            return true;
+        default:
+            return false;
+    }
+}
+
 inline bool ath10kWCLChannelSpec(const Ath10kNativeBSSRecord *record,
                                 uint16_t *channelSpec) {
-    if (!record || !channelSpec || !record->channel ||
-        record->channel > 196 || !record->frequency_mhz)
+    if (!record || !channelSpec || !ath10kWCLSupportedChannel(record->channel) ||
+        !record->frequency_mhz)
         return false;
-    if (record->channel <= 14) {
-        const uint32_t expected = record->channel == 14
-            ? 2484u : 2407u + 5u * record->channel;
+    if (record->channel <= 13) {
+        const uint32_t expected = 2407u + 5u * record->channel;
         if (record->frequency_mhz != expected) return false;
         *channelSpec = static_cast<uint16_t>(record->channel | 0x1000u);
         return true;
