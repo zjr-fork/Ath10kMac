@@ -158,8 +158,9 @@ Leave/Scan notification question:
   that message 216 is a teardown-completion barrier.
 - The WCL implementation uses the controller-side five-argument
   `postMessage(interface, message, payload, length, true)` for these messages.
-  The declaration alone and call sites do not establish whether the payload is
-  copied synchronously or how long the interface must remain alive.
+  Its immediate release of payload storage is evidence of synchronous
+  consumption/copy in that reference build, but does not establish the
+  interface's lifetime through asynchronous detach/teardown.
 
 These observations are from one GPL-2.0-only reference implementation and are
 used only as protocol/lifecycle evidence; no implementation or header source
@@ -468,3 +469,14 @@ non-estimated RSSI, and unavailable RSSI. This is serializer-only hardening:
 the WCL message publisher, receiver contract, and payload ownership remain
 unverified and unwired. The full macOS host-test script and KEXT build have not
 yet been run for this change.
+
+### Exact WCL channel/frequency consistency
+
+The WCL serializer now validates the exact primary-channel frequency mapping,
+not merely that channel and frequency fall into the same band. For channels
+1-13 it requires `2407 + 5 * channel` MHz; channel 14 uses 2484 MHz; for the
+supported 5 GHz channel numbers it requires `5000 + 5 * channel` MHz. This
+rejects same-band but contradictory metadata (for example channel 36 paired
+with 5200 MHz), as well as unsupported 6 GHz frequencies. The test fixture
+includes this same-band mismatch. The serializer remains a value-only helper
+and is not wired to WCL message publication.
