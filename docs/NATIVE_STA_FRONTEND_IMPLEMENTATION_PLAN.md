@@ -482,3 +482,34 @@ This also rejects same-band but contradictory metadata (for example channel
 36 paired with 5200 MHz) and unsupported 6 GHz frequencies. The test fixture
 covers these cases. The serializer remains a value-only helper and is not
 wired to WCL message publication.
+### Concrete controller/interface registration sequence in the pinned reference
+
+A focused read of `AirportItlwm/AirportItlwmV2.cpp` establishes the following
+single-implementation ordering (protocol evidence only):
+
+1. Allocate the separate Skywalk interface and initialize it with the
+   controller as provider; assign interface role and ID.
+2. Attach the interface to its service provider, then call the controller's
+   `attachInterface(interface, controller)` entry point.
+3. Separately attach the legacy `IONetworkController` BSD interface (the WCL
+   branch passes `false` for that call's Boolean argument).
+4. Initialize registration information, allocate/copy the two registration
+   structures, optionally defer BSD attach, and start the Skywalk interface
+   with the controller.
+5. Register the BSD interface and controller service.
+
+The reference stop path first stops WCL activity, stops the controller service,
+disables the BSD adapter, updates link status, detaches the HAL and Ethernet
+ifnet, calls `detachInterface(interface, true)`, releases the interface, and
+then releases remaining resources. The call site does not expose a detach
+completion callback or prove what the Boolean argument guarantees. Immediate
+release after the call is an observed reference pattern, not an Apple 15.7
+lifetime guarantee.
+
+For Ath10kMac this narrows the likely staged registration order but does not
+authorize copying the implementation or assuming its private registration
+allocation sizes. Before wiring it, verify the exact 15.7 declarations and
+runtime behavior, especially the legacy BSD attachment requirement, ownership
+of both registration structures, and whether `detachInterface(..., true)`
+has synchronous completion semantics on the target OS. The PCI/core owner
+must still keep DMA/HTC teardown independent of interface object lifetime.
