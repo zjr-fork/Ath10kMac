@@ -52,7 +52,7 @@ inline bool ath10kWCLValidIEs(const uint8_t *ies, uint32_t length) {
 
 /*
  * QCA9377 is a 2.4/5 GHz device. Use the captured frequency, not just the
- * channel number, to select the WCL band bits; reject unknown or inconsistent
+ * channel number, to select the WCL band bits; reject unknown or non-exact
  * channel/frequency pairs instead of publishing a guessed channel spec.
  */
 inline bool ath10kWCLChannelSpec(const Ath10kNativeBSSRecord *record,
@@ -60,13 +60,14 @@ inline bool ath10kWCLChannelSpec(const Ath10kNativeBSSRecord *record,
     if (!record || !channelSpec || !record->channel ||
         record->channel > 196 || !record->frequency_mhz)
         return false;
-    if (record->frequency_mhz >= 2400 && record->frequency_mhz <= 2500 &&
-        record->channel <= 14) {
+    if (record->channel <= 14) {
+        const uint32_t expected = record->channel == 14
+            ? 2484u : 2407u + 5u * record->channel;
+        if (record->frequency_mhz != expected) return false;
         *channelSpec = static_cast<uint16_t>(record->channel | 0x1000u);
         return true;
     }
-    if (record->frequency_mhz >= 4900 && record->frequency_mhz <= 5900 &&
-        record->channel > 14) {
+    if (record->frequency_mhz == 5000u + 5u * record->channel) {
         *channelSpec = static_cast<uint16_t>(record->channel | 0xd000u);
         return true;
     }
