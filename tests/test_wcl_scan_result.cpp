@@ -56,6 +56,8 @@ int main() {
     record.frequency_mhz = 5180; // channel/frequency band mismatch
     if (ath10kBuildWCLScanResult(&record, output, sizeof(output)) != 0) return 17;
     record.channel = 36;
+    record.frequency_mhz = 5200; // same band, but wrong primary-channel frequency
+    if (ath10kBuildWCLScanResult(&record, output, sizeof(output)) != 0) return 19;
     record.frequency_mhz = 5955; // unsupported 6 GHz
     if (ath10kBuildWCLScanResult(&record, output, sizeof(output)) != 0) return 18;
     record.frequency_mhz = 5180;
